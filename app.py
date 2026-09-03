@@ -1,7 +1,6 @@
 import json
 import os
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 import requests
 import google.generativeai as genai
@@ -130,8 +129,6 @@ TEXTO MEJORADO:"""
 # =========================================================
 # CONFIGURACIÓN GENERAL Y CONSTANTES
 # =========================================================
-EXCEL_SERVICIOS = "servicios.xlsx"
-EXCEL_INCENDIOS = "incendios.xlsx"
 ARCHIVO_SERVICIOS = "servicios_disponibles.json"
 ARCHIVO_ORGANISMOS = "organismos_disponibles.json"
 ARCHIVO_CAUSAS = "causas_disponibles.json"
@@ -852,51 +849,20 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
 
 *ANALISTA:* 
 {analista_srv}"""
-
+                # Guardar automáticamente para los partes
+                datos_servicio = {
+                    "tipo_servicio": tipo_servicio,
+                    "num_servicio": num_servicio,
+                    "ubicacion": ubicacion_srv,
+                    "resena": resena_borrador,
+                    "coordenadas": f"{latitud_srv}, {longitud_srv}",
+                    "estatus": estatus_srv
+                }
+                registrar_servicio_dia(datos_servicio)
+                st.success("✅ Servicio registrado para los partes")
     if st.session_state.reporte_generado:
         st.subheader("📋 Reporte Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.reporte_generado, language=None)
-
-        if st.button("💾 GUARDAR SERVICIO EN EXCEL", use_container_width=True):
-            org_excel = ", ".join([f"{org.split(' (')[0]}: {cant}" for org, cant in cantidades_org.items()]) if cantidades_org else "Ninguno"
-            obs_excel = f"{num_observaciones} observaciones registradas" if num_observaciones > 0 else "00"
-            
-            nuevo_srv = pd.DataFrame([{
-                "Fecha": fecha_srv.strftime('%Y-%m-%d'),
-                "Hora Inicio": hora_inicio.strftime('%H:%M'),
-                "Hora Fin": hora_fin.strftime('%H:%M'),
-                "Tipo Servicio": tipo_servicio,
-                "Número Servicio": num_servicio,
-                "Jefe Comisión": jefe_comision,
-                "Ubicación": ubicacion_srv,
-                "Reseña Original": resena_borrador,
-                "Acciones Realizadas": acciones_borrador,
-                "Observaciones": obs_excel,
-                "Organismos Presentes": org_excel,
-                "Efectivos": efectivos_srv,
-                "Estatus": estatus_srv,
-                "Coordenadas": f"{latitud_srv}, {longitud_srv}",
-                "Analista": analista_srv
-            }])
-
-            if os.path.exists(EXCEL_SERVICIOS):
-                df_existente = pd.read_excel(EXCEL_SERVICIOS)
-                df_final = pd.concat([df_existente, nuevo_srv], ignore_index=True)
-            else:
-                df_final = nuevo_srv
-
-            df_final.to_excel(EXCEL_SERVICIOS, index=False)
-            
-            datos_servicio = {
-                "tipo_servicio": tipo_servicio,
-                "num_servicio": num_servicio,
-                "ubicacion": ubicacion_srv,
-                "resena": resena_borrador,
-                "coordenadas": f"{latitud_srv}, {longitud_srv}",
-                "estatus": estatus_srv
-            }
-            registrar_servicio_dia(datos_servicio)
-            st.success(f"✅ ¡Servicio '{tipo_servicio}' guardado en Excel y enlazado para los partes!")
 
 # =========================================================
 # MÓDULO 4: REPORTES DE INCENDIOS
@@ -1183,7 +1149,17 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                     texto_observaciones_ws_i = f"{int(cant_obs_inc):02d}\n"
                     for idx, txt in enumerate(lista_textos_observaciones_inc, 1):
                         texto_observaciones_ws_i += f"- {txt}\n"
-
+# Guardar automáticamente para los partes
+                datos_incendio = {
+                    "tipo_servicio": tipo_incendio,
+                    "num_servicio": num_servicio_inc,
+                    "ubicacion": f"{sector}, {municipio}",
+                    "resena": resena_inc,
+                    "coordenadas": f"{lat_inc}, {lon_inc}",
+                    "estatus": estatus_inc
+                }
+                registrar_servicio_dia(datos_incendio)
+                st.success("✅ Incendio registrado para los partes")
                 st.session_state.incendio_generado = f"""*SISTEMA NACIONAL DE GESTIÓN DE RIESGOS*
 
 *CUERPO DE BOMBEROS FORESTALES  INPARQUES*
@@ -1259,40 +1235,6 @@ BFI: {efectivos_inc:02d}
     if st.session_state.incendio_generado:
         st.subheader("📋 Reporte de Incendio Formateado")
         st.code(st.session_state.incendio_generado, language=None)
-
-        if st.button("💾 GUARDAR INCENDIO EN EXCEL", use_container_width=True):
-            nuevo_inc = pd.DataFrame([{
-                "Fecha": fecha_inc.strftime('%Y-%m-%d'),
-                "Hora": hora_inc.strftime('%H:%M'),
-                "Tipo Servicio": tipo_incendio,
-                "Número Servicio": num_servicio_inc,
-                "Ubicación": f"{sector}, {municipio}",
-                "Comandante": comandante_escena,
-                "Área Afectada": f"{area_total_ha} ha",
-                "Efectivos": efectivos_inc,
-                "Estatus": estatus_inc,
-                "Coordenadas": f"{lat_inc}, {lon_inc}",
-                "Analista / Delegado": delegado_ame
-            }])
-
-            if os.path.exists(EXCEL_SERVICIOS):
-                df_existente = pd.read_excel(EXCEL_SERVICIOS)
-                df_final = pd.concat([df_existente, nuevo_inc], ignore_index=True)
-            else:
-                df_final = nuevo_inc
-
-            df_final.to_excel(EXCEL_SERVICIOS, index=False)
-            
-            datos_incendio = {
-                "tipo_servicio": tipo_incendio,
-                "num_servicio": num_servicio_inc,
-                "ubicacion": f"{sector}, {municipio}",
-                "resena": resena_inc,
-                "coordenadas": f"{lat_inc}, {lon_inc}",
-                "estatus": estatus_inc
-            }
-            registrar_servicio_dia(datos_incendio)
-            st.success(f"✅ ¡Incendio guardado exitosamente en `{EXCEL_SERVICIOS}` y enlazado para los partes!")
 
 # =========================================================
 # MÓDULO 5: REPORTES MIXTOS
@@ -1637,3 +1579,4 @@ elif opcion_modulo == "REPORTES MIXTOS":
         if st.session_state.reporte_unidad_generado:
             st.subheader("📋 Reporte de Unidad Formateado (Listo para copiar a WhatsApp)")
             st.code(st.session_state.reporte_unidad_generado, language=None)
+
