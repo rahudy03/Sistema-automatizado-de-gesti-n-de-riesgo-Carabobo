@@ -723,7 +723,7 @@ elif opcion_modulo == "RESUMEN VESPERTINO":
         "Cielo Despejado en el Sector La Cumaca, parroquia San Diego, Municipio San Diego, Estado Carabobo.",
         key="meteo_vesp"
     )
-    analista_vesp = st.text_input("Analista que Registra", "Pasante Escalona M", key="a_vesp")
+    analista_vesp = st.text_input("Analista que Registra", "", key="a_vesp")
 
     if 'parte_vespertino_generado' not in st.session_state:
         st.session_state.parte_vespertino_generado = ""
@@ -1287,7 +1287,7 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             else:
                 st.info("No hay sectores. Agrega un sector primero.")
         
-        # ---- Selección de Sector y Sub-sector ----
+              # ---- Selección de Sector y Sub-sector ----
         sectores_de_parroquia_inc = ubicaciones[municipio]["sectores"].get(parroquia, {})
         
         if sectores_de_parroquia_inc:
@@ -1302,7 +1302,34 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             sector = st.text_input("Sector (no hay registrados)", "", key="sector_inc")
             sub_sector = st.text_input("Sub-sector", "", key="sub_sector_inc")
         
-        abrae_inc = st.selectbox("Abrae", ["P/N San Esteban", "No aplica"], index=["P/N San Esteban", "No aplica"].index(default_abrae) if default_abrae in ["P/N San Esteban", "No aplica"] else 0)
+        # ---- ABRAE (SIEMPRE VISIBLE) ----
+        lista_abrae = ["P/N San Esteban",
+            "Fuera de ABRAE",
+            "Parque Nacional",
+            "Monumento Natural",
+            "Refugio de Fauna Silvestre",
+            "Santuario de Fauna Silvestre",
+            "Reserva de Biosfera",
+            "Reserva Forestal",
+            "Lote Boscoso",
+            "Área Vital de Obtención de Recursos Minerales",
+            "Área Rural de Desarrollo Integrado (ARDI)",
+            "Zona de Aprovechamiento Agrícola",
+            "Área de Protección y Recuperación Ambiental",
+            "Zona Protectora",
+            "Reserva Hidráulica",
+            "Cuenca Hidrográfica en Ordenación",
+            "Área de Mitigación de Riesgos",
+            "Área de Control del Manejo de Aguas",
+            "Parque Recreacional",
+            "Zona de Interés Turístico",
+            "Sitio de Patrimonio Histórico, Artístico y Arqueológico",
+            "Área Fronteriza",
+            "Zona de Seguridad",
+            "Área de Manejo de Instalaciones Militares y Estratégicas"
+        ]
+        
+        abrae_inc = st.selectbox("Abrae", lista_abrae, index=lista_abrae.index(default_abrae) if default_abrae in lista_abrae else 0)
 
     st.subheader("📍 Coordenadas y Ubicación")
     col_c1, col_c2 = st.columns(2)
@@ -1475,7 +1502,7 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
 
     col_e1, col_e2, col_e3 = st.columns(3)
     with col_e1:
-        estatus_inc = st.selectbox("Estatus del Incendio", ["Finalizado-combatido", "en proceso", "Finalizado"], index=["Finalizado-combatido", "en proceso", "Finalizado"].index(default_estatus) if default_estatus in ["Finalizado-combatido", "en proceso", "Finalizado"] else 1)
+        estatus_inc = st.selectbox("Estatus del Incendio", ["Finalizado-combatido", "En proceso", "Finalizado no combatido"], index=["Finalizado-combatido", "En proceso", "Finalizado no combatido"].index(default_estatus) if default_estatus in ["Finalizado-combatido", "En proceso", "Finalizado no combatido"] else 1)
     with col_e2:
         hora_envio_inc = st.time_input("Hora de Envío del Reporte", datetime.now().time(), key="h_envio_inc")
     with col_e3:
@@ -1816,17 +1843,9 @@ elif opcion_modulo == "REPORTES MIXTOS":
                 ],
                 key="tipo_unidad"
             )
-
-            # Si es tipo moto o particular, pedir número de dos dígitos
-            if tipo_unidad == "UNIDAD PARTICULAR" or tipo_unidad == "UNIDAD TIPO MOTO":
-                num_unidad = st.number_input(
-                    "Número de Unidad (dos dígitos)",
-                    min_value=1,
-                    max_value=99,
-                    value=41,
-                    step=1,
-                    key="num_unidad"
-                )
+            
+            if tipo_unidad == "UNIDAD TIPO MOTO":
+                num_unidad = st.number_input("Número de Unidad", min_value=1, max_value=99, value=41)
                 unidad_completa = f"{tipo_unidad} {num_unidad:02d}"
             else:
                 unidad_completa = tipo_unidad
