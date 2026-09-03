@@ -1113,6 +1113,8 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                     if st.button(f"📝 Cargar", key=f"cargar_pre_{idx}"):
                         st.session_state["preliminar_cargado"] = preliminar
                         st.session_state["mostrar_preliminar"] = True
+                        st.session_state["resena_actual"] = preliminar.get("resena", "")
+                        st.session_state["acciones_actual"] = preliminar.get("acciones", "")
                         st.rerun()
                 with col_pre2:
                     if st.button(f"🗑️ Eliminar", key=f"eliminar_pre_{idx}"):
@@ -1199,37 +1201,107 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         estacion_ebf = st.text_input("Estación / Base", default_estacion)
 
     with col_i2:
-        sub_sector = st.text_input("Sub-Sector", default_sub_sector)
-        sector = st.text_input("Sector", default_sector)
+        estado_inc = st.text_input("Estado", default_estado)
         
-        municipios_carabobo = {
-            "Bejuma": ["Bejuma", "Chirgua", "Simón Bolívar"],
-            "Carlos Arvelo": ["Güigüe", "Tacarigua", "Belén"],
-            "Diego Ibarra": ["Mariara", "Aguas Calientes"],
-            "Guacara": ["Guacara", "Ciudad Alianza", "Yagua"],
-            "Juan José Mora": ["Morón", "Urama"],
-            "Libertador": ["Tocuyito", "Independencia"],
-            "Los Guayos": ["Los Guayos"],
-            "Miranda": ["Miranda"],
-            "Montalbán": ["Montalbán"],
-            "Naguanagua": ["Naguanagua"],
-            "Puerto Cabello": ["Puerto Cabello", "Democracia", "Fraternidad", "Goaigoaza", "Juan José Flores", "Patanemo", "Borburata"],
-            "San Diego": ["San Diego"],
-            "San Joaquín": ["San Joaquín"]
-        }
-
+        # Cargar ubicaciones
+        ubicaciones = cargar_ubicaciones()
+        
+        # Selección de Municipio
         municipio = st.selectbox(
             "Municipio", 
-            list(municipios_carabobo.keys()), 
-            index=list(municipios_carabobo.keys()).index(default_municipio) if default_municipio in municipios_carabobo else 0
-        )
-        parroquia = st.selectbox(
-            "Parroquia", 
-            municipios_carabobo[municipio],
-            index=municipios_carabobo[municipio].index(default_parroquia) if default_parroquia in municipios_carabobo[municipio] else 0
+            list(ubicaciones.keys()), 
+            index=list(ubicaciones.keys()).index(default_municipio) if default_municipio in ubicaciones else 0,
+            key="municipio_inc"
         )
         
-        estado_inc = st.text_input("Estado", default_estado)
+        # Selección de Parroquia según municipio
+        parroquias_disponibles_inc = ubicaciones[municipio]["parroquias"]
+        parroquia = st.selectbox(
+            "Parroquia", 
+            parroquias_disponibles_inc,
+            index=parroquias_disponibles_inc.index(default_parroquia) if default_parroquia in parroquias_disponibles_inc else 0,
+            key="parroquia_inc"
+        )
+        
+        # ---- Gestión de Sectores y Sub-sectores ----
+        with st.expander("➕ / 🗑️ Gestionar Sectores y Sub-sectores"):
+            sectores_de_parroquia_inc = ubicaciones[municipio]["sectores"].get(parroquia, {})
+            
+            if sectores_de_parroquia_inc:
+                st.write("**Sectores existentes:**")
+                for sector_nombre, sub_sectores_lista in sectores_de_parroquia_inc.items():
+                    st.write(f"- {sector_nombre} ({len(sub_sectores_lista)} sub-sectores)")
+            
+            st.markdown("---")
+            st.write("**Agregar Sector:**")
+            nuevo_sector_inc = st.text_input("Nombre del nuevo sector:", key="nuevo_sector_inc")
+            if st.button("➕ Agregar Sector", key="btn_agregar_sector_inc"):
+                if nuevo_sector_inc.strip():
+                    if parroquia not in ubicaciones[municipio]["sectores"]:
+                        ubicaciones[municipio]["sectores"][parroquia] = {}
+                    if nuevo_sector_inc.strip() not in ubicaciones[municipio]["sectores"][parroquia]:
+                        ubicaciones[municipio]["sectores"][parroquia][nuevo_sector_inc.strip()] = []
+                        guardar_ubicaciones(ubicaciones)
+                        st.success(f"✅ Sector '{nuevo_sector_inc}' agregado a {parroquia}")
+                        st.rerun()
+                    else:
+                        st.warning("Ese sector ya existe.")
+                else:
+                    st.warning("Escribe el nombre del sector.")
+            
+            if sectores_de_parroquia_inc:
+                sector_a_eliminar_inc = st.selectbox("Seleccione sector a eliminar:", list(sectores_de_parroquia_inc.keys()), key="sec_eliminar_inc")
+                if st.button("🗑️ Eliminar Sector", key="btn_eliminar_sector_inc"):
+                    if sector_a_eliminar_inc in ubicaciones[municipio]["sectores"][parroquia]:
+                        del ubicaciones[municipio]["sectores"][parroquia][sector_a_eliminar_inc]
+                        guardar_ubicaciones(ubicaciones)
+                        st.success(f"✅ Sector '{sector_a_eliminar_inc}' eliminado")
+                        st.rerun()
+            
+            st.markdown("---")
+            st.write("**Agregar Sub-sector a Sector existente:**")
+            if sectores_de_parroquia_inc:
+                sector_para_sub_inc = st.selectbox("Seleccione sector:", list(sectores_de_parroquia_inc.keys()), key="sec_para_sub_inc")
+                nuevo_sub_sector_inc = st.text_input("Nombre del nuevo sub-sector:", key="nuevo_sub_sector_inc")
+                if st.button("➕ Agregar Sub-sector", key="btn_agregar_sub_inc"):
+                    if nuevo_sub_sector_inc.strip():
+                        if nuevo_sub_sector_inc.strip() not in ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc]:
+                            ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc].append(nuevo_sub_sector_inc.strip())
+                            guardar_ubicaciones(ubicaciones)
+                            st.success(f"✅ Sub-sector '{nuevo_sub_sector_inc}' agregado a {sector_para_sub_inc}")
+                            st.rerun()
+                        else:
+                            st.warning("Ese sub-sector ya existe.")
+                    else:
+                        st.warning("Escribe el nombre del sub-sector.")
+                
+                sub_sectores_de_sector_inc = ubicaciones[municipio]["sectores"][parroquia].get(sector_para_sub_inc, [])
+                if sub_sectores_de_sector_inc:
+                    sub_a_eliminar_inc = st.selectbox("Seleccione sub-sector a eliminar:", sub_sectores_de_sector_inc, key="sub_eliminar_inc")
+                    if st.button("🗑️ Eliminar Sub-sector", key="btn_eliminar_sub_inc"):
+                        if sub_a_eliminar_inc in ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc]:
+                            ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc].remove(sub_a_eliminar_inc)
+                            guardar_ubicaciones(ubicaciones)
+                            st.success(f"✅ Sub-sector '{sub_a_eliminar_inc}' eliminado")
+                            st.rerun()
+            else:
+                st.info("No hay sectores. Agrega un sector primero.")
+        
+        # ---- Selección de Sector y Sub-sector ----
+        sectores_de_parroquia_inc = ubicaciones[municipio]["sectores"].get(parroquia, {})
+        
+        if sectores_de_parroquia_inc:
+            sector = st.selectbox("Sector", list(sectores_de_parroquia_inc.keys()), key="sector_inc")
+            
+            sub_sectores_del_sector_inc = sectores_de_parroquia_inc[sector]
+            if sub_sectores_del_sector_inc:
+                sub_sector = st.selectbox("Sub-sector", sub_sectores_del_sector_inc, key="sub_sector_inc")
+            else:
+                sub_sector = st.text_input("Sub-sector (no hay registrados)", "", key="sub_sector_inc")
+        else:
+            sector = st.text_input("Sector (no hay registrados)", "", key="sector_inc")
+            sub_sector = st.text_input("Sub-sector", "", key="sub_sector_inc")
+        
         abrae_inc = st.selectbox("Abrae", ["P/N San Esteban", "No aplica"], index=["P/N San Esteban", "No aplica"].index(default_abrae) if default_abrae in ["P/N San Esteban", "No aplica"] else 0)
 
     st.subheader("📍 Coordenadas y Ubicación")
@@ -1369,7 +1441,10 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if obs_texto_i.strip():
                 lista_textos_observaciones_inc.append(obs_texto_i.strip())
 
-    resena_inc = st.text_area("RESEÑA:", value=default_resena, placeholder="Ejemplo: Durante recorrido...", height=100, key="res_inc")
+    if "resena_actual" not in st.session_state:
+        st.session_state["resena_actual"] = default_resena
+
+    resena_inc = st.text_area("RESEÑA:", key="resena_actual", placeholder="Ejemplo: Durante recorrido...", height=100)
     
     col_res_btn1_i, col_res_btn2_i = st.columns([3, 1])
     with col_res_btn2_i:
@@ -1377,14 +1452,15 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if resena_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
                     resena_mejorada_inc_ia = mejorar_redaccion_ia(resena_inc, "reseña de incendio")
-                    st.session_state["resena_mejorada_inc"] = resena_mejorada_inc_ia
+                    st.session_state["resena_actual"] = resena_mejorada_inc_ia
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "resena_mejorada_inc" in st.session_state:
-        resena_inc = st.text_area("Reseña mejorada (copia este texto)", value=st.session_state["resena_mejorada_inc"], key="resena_mejorada_display_inc", height=100)
-    
-    acciones_inc = st.text_area("ACCIÓN REALIZADA (Bitácora de Eventos):", value=default_acciones, placeholder="Ejemplo:\n15:10 Hrs Se destaca...", height=200, key="acc_inc")
+    if "acciones_actual" not in st.session_state:
+        st.session_state["acciones_actual"] = default_acciones
+
+    acciones_inc = st.text_area("ACCIÓN REALIZADA (Bitácora de Eventos):", key="acciones_actual", placeholder="Ejemplo:\n15:10 Hrs Se destaca...", height=200)
     
     col_acc_btn1_i, col_acc_btn2_i = st.columns([3, 1])
     with col_acc_btn2_i:
@@ -1392,12 +1468,10 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if acciones_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
                     acciones_mejoradas_inc_ia = mejorar_redaccion_ia(acciones_inc, "bitácora de eventos")
-                    st.session_state["acciones_mejoradas_inc"] = acciones_mejoradas_inc_ia
+                    st.session_state["acciones_actual"] = acciones_mejoradas_inc_ia
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
-    
-    if "acciones_mejoradas_inc" in st.session_state:
-        acciones_inc = st.text_area("Acciones mejoradas (copia este texto)", value=st.session_state["acciones_mejoradas_inc"], key="acciones_mejoradas_display_inc", height=200)
 
     col_e1, col_e2, col_e3 = st.columns(3)
     with col_e1:
@@ -1444,7 +1518,6 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                     for idx, txt in enumerate(lista_textos_observaciones_inc, 1):
                         texto_observaciones_ws_i += f"- {txt}\n"
 
-                # Guardar automáticamente para los partes
                 datos_incendio = {
                     "tipo_servicio": tipo_incendio,
                     "num_servicio": num_servicio_inc,
@@ -1455,7 +1528,6 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                 }
                 registrar_servicio_dia(datos_incendio)
                 
-                # Guardar como preliminar si NO está finalizado
                 if estatus_inc not in ["Finalizado", "Finalizado-combatido"]:
                     datos_preliminar = {
                         "tipo_reporte": tipo_reporte,
