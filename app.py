@@ -16,7 +16,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # FUNCIÓN DE IA PARA MEJORAR REDACCIÓN
 # =========================================================
 def mejorar_redaccion_ia(texto, tipo_texto="general"):
-    """Mejora la redacción usando Gemini con instrucciones específicas para cada tipo de texto."""
+    """Mejora la redacción usando Gemini rotando entre múltiples modelos."""
     if not texto.strip():
         return "Sin información adicional registrada."
 
@@ -115,16 +115,38 @@ TEXTO ORIGINAL:
 
 TEXTO MEJORADO:"""
 
-    try:
-        model = genai.GenerativeModel("gemini-3.5-flash-lite")
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        st.warning(f"⚠️ No se pudo usar IA: {e}")
-        texto_limpio = texto.strip().capitalize()
-        if not texto_limpio.endswith('.'):
-            texto_limpio += '.'
-        return texto_limpio
+    # Rotación entre múltiples modelos
+    modelos = [
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-3.7-flash",
+        "gemini-flash-latest",
+        "gemini-flash-lite-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-lite-preview"
+    ]
+    
+    if "modelo_actual" not in st.session_state:
+        st.session_state["modelo_actual"] = 0
+    
+    for intento in range(len(modelos)):
+        indice_modelo = (st.session_state["modelo_actual"] + intento) % len(modelos)
+        modelo_elegido = modelos[indice_modelo]
+        
+        try:
+            model = genai.GenerativeModel(modelo_elegido)
+            response = model.generate_content(prompt)
+            st.session_state["modelo_actual"] = (indice_modelo + 1) % len(modelos)
+            return response.text.strip()
+        except:
+            continue
+    
+    st.warning("⚠️ Se excedió el límite de solicitudes de IA. Intenta más tarde.")
+    texto_limpio = texto.strip().capitalize()
+    if not texto_limpio.endswith('.'):
+        texto_limpio += '.'
+    return texto_limpio
 
 # =========================================================
 # CONFIGURACIÓN GENERAL Y CONSTANTES
