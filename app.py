@@ -116,7 +116,7 @@ TEXTO ORIGINAL:
 TEXTO MEJORADO:"""
 
     try:
-        model = genai.GenerativeModel("gemini-3.6-flash")
+        model = genai.GenerativeModel("gemini-3.5-flash-lite")
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
