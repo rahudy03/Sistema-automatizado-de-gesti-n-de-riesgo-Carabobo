@@ -119,7 +119,7 @@ TEXTO ORIGINAL:
 
 TEXTO MEJORADO:"""
     modelos = [
-        "meta-llama/llama-3.3-70b-instruct:free",
+        "meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-chat:free","mistralai/mistral-7b-instruct:free",
         "mistralai/mistral-7b-instruct:free",
         "deepseek/deepseek-chat:free",
         "inclusionai/ling-3.0-flash-fin:free"
