@@ -3,22 +3,26 @@ import os
 import streamlit as st
 from datetime import datetime
 import requests
-import google.generativeai as genai
+from openai import OpenAI
 
 # =========================================================
 # CONFIGURACIÓN DE API KEYS DESDE secrets.toml
 # =========================================================
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 WINDY_API_KEY = st.secrets["WINDY_API_KEY"]
-
-genai.configure(api_key=GEMINI_API_KEY)
+OPENROUTER_API_KEY = "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"
 # =========================================================
 # FUNCIÓN DE IA PARA MEJORAR REDACCIÓN
 # =========================================================
+
 def mejorar_redaccion_ia(texto, tipo_texto="general"):
-    """Mejora la redacción usando Gemini rotando entre múltiples modelos."""
+    """Mejora la redacción usando OpenRouter con modelos gratuitos."""
     if not texto.strip():
         return "Sin información adicional registrada."
+
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key="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",
+    )
 
     instrucciones_base = """Eres un asistente de redacción para reportes oficiales del Cuerpo de Bomberos Forestales INPARQUES.
 
@@ -114,19 +118,12 @@ TEXTO ORIGINAL:
 {texto}
 
 TEXTO MEJORADO:"""
-
-    # Rotación entre múltiples modelos
     modelos = [
-        "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.6-flash",
-        "gemini-3.7-flash",
-        "gemini-flash-latest",
-        "gemini-flash-lite-latest",
-        "gemini-3.1-flash-lite",
-        "gemini-3.1-flash-lite-preview"
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "deepseek/deepseek-chat:free",
+        "inclusionai/ling-3.0-flash-fin:free"
     ]
-    
     if "modelo_actual" not in st.session_state:
         st.session_state["modelo_actual"] = 0
     
@@ -135,14 +132,20 @@ TEXTO MEJORADO:"""
         modelo_elegido = modelos[indice_modelo]
         
         try:
-            model = genai.GenerativeModel(modelo_elegido)
-            response = model.generate_content(prompt)
+            response = client.chat.completions.create(
+                model=modelo_elegido,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=800,
+                temperature=0.3
+            )
             st.session_state["modelo_actual"] = (indice_modelo + 1) % len(modelos)
-            return response.text.strip()
+            return response.choices[0].message.content.strip()
         except:
             continue
     
-    st.warning("⚠️ Se excedió el límite de solicitudes de IA. Intenta más tarde.")
+    st.warning("⚠️ Se excedió el límite de solicitudes. Intenta más tarde.")
     texto_limpio = texto.strip().capitalize()
     if not texto_limpio.endswith('.'):
         texto_limpio += '.'
