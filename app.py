@@ -9,7 +9,8 @@ from openai import OpenAI
 # CONFIGURACIÓN DE API KEYS DESDE secrets.toml
 # =========================================================
 WINDY_API_KEY = st.secrets["WINDY_API_KEY"]
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
+
 # =========================================================
 # FUNCIÓN DE IA PARA MEJORAR REDACCIÓN
 # =========================================================
@@ -21,7 +22,7 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
 
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
-        api_key="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",
+        api_key=OPENROUTER_API_KEY,
     )
 
     instrucciones_base = """Eres un asistente de redacción para reportes oficiales del Cuerpo de Bomberos Forestales INPARQUES.
@@ -91,7 +92,7 @@ INSTRUCCIONES ESPECÍFICAS PARA CONDICIONES METEOROLÓGICAS:
 - Describe el clima de forma técnica y precisa.
 - Usa términos como "precipitaciones", "nubosidad", "vientos".
 - Incluye ubicación geográfica si se menciona.
-- Formato: "Cielo despejado en el Sector..., Parroquia..., Municipio..., Estado..." """,
+- Formato: "Cielo despejado en el sector..., parroquia..., municipio..., estado..." """,
 
         "motivo de unidad": """
 INSTRUCCIONES ESPECÍFICAS PARA MOTIVO DE UNIDAD:
@@ -119,11 +120,9 @@ TEXTO ORIGINAL:
 
 TEXTO MEJORADO:"""
     modelos = [
-        "meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-chat:free","mistralai/mistral-7b-instruct:free",
-        "mistralai/mistral-7b-instruct:free",
-        "deepseek/deepseek-chat:free",
-        "inclusionai/ling-3.0-flash-fin:free"
+        "inclusionai/ling-3.0-flash-sante:free"
     ]
+    
     if "modelo_actual" not in st.session_state:
         st.session_state["modelo_actual"] = 0
     
@@ -137,7 +136,7 @@ TEXTO MEJORADO:"""
                 messages=[
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=800,
+                max_tokens=300,
                 temperature=0.3
             )
             st.session_state["modelo_actual"] = (indice_modelo + 1) % len(modelos)
@@ -159,6 +158,32 @@ ARCHIVO_ORGANISMOS = "organismos_disponibles.json"
 ARCHIVO_CAUSAS = "causas_disponibles.json"
 ARCHIVO_ACUMULADOS_DIA = "servicios_acumulados.json"
 ARCHIVO_PRELIMINARES = "incendios_preliminares.json"
+ARCHIVO_UBICACIONES = "ubicaciones_carabobo.json"
+ARCHIVO_MEMORIA = "ultimo_reporte.json"
+
+def guardar_memoria(clave, valor):
+    """Guarda un valor en la memoria persistente."""
+    memoria = {}
+    if os.path.exists(ARCHIVO_MEMORIA):
+        try:
+            with open(ARCHIVO_MEMORIA, "r", encoding="utf-8") as f:
+                memoria = json.load(f)
+        except:
+            pass
+    memoria[clave] = valor
+    with open(ARCHIVO_MEMORIA, "w", encoding="utf-8") as f:
+        json.dump(memoria, f, ensure_ascii=False, indent=4)
+
+def cargar_memoria(clave, default=""):
+    """Carga un valor de la memoria persistente."""
+    if os.path.exists(ARCHIVO_MEMORIA):
+        try:
+            with open(ARCHIVO_MEMORIA, "r", encoding="utf-8") as f:
+                memoria = json.load(f)
+            return memoria.get(clave, default)
+        except:
+            pass
+    return default
 
 def registrar_servicio_dia(objeto_servicio):
     """Guarda una estructura completa del servicio para los partes matutino/vespertino."""
@@ -187,7 +212,7 @@ def consumir_y_limpiar_servicios():
         json.dump([], f)
         
     if not lista:
-        return "00 (Sin servicios registrados en este periodo)"
+        return "00"
     
     bloques_resumen = []
     for idx, srv in enumerate(lista, 1):
@@ -230,8 +255,9 @@ def guardar_servicios_persistencia(lista):
             json.dump(lista, f, ensure_ascii=False, indent=4)
     except:
         pass
+
 def guardar_incendio_preliminar(datos_incendio):
-    """Guarda o actualiza un incendio preliminar."""
+    """Guarda o actualiza un incendio en proceso."""
     lista = []
     if os.path.exists(ARCHIVO_PRELIMINARES):
         try:
@@ -257,7 +283,7 @@ def guardar_incendio_preliminar(datos_incendio):
         json.dump(lista, f, ensure_ascii=False, indent=4)
 
 def cargar_incendios_preliminares():
-    """Carga los incendios preliminares guardados."""
+    """Carga los incendios en proceso guardados."""
     if not os.path.exists(ARCHIVO_PRELIMINARES):
         return []
     try:
@@ -267,7 +293,7 @@ def cargar_incendios_preliminares():
         return []
 
 def eliminar_incendio_preliminar(indice_o_num_servicio):
-    """Elimina un incendio preliminar por índice o número de servicio."""
+    """Elimina un incendio en proceso por índice o número de servicio."""
     lista = cargar_incendios_preliminares()
     
     if isinstance(indice_o_num_servicio, int):
@@ -318,72 +344,135 @@ def guardar_progresivo(num_servicio, numero_progresivo, datos_actualizados):
     
     with open(ARCHIVO_PRELIMINARES, "w", encoding="utf-8") as f:
         json.dump(preliminares, f, ensure_ascii=False, indent=4)
-# =========================================================
-# FUNCIONES DE UBICACIONES
-# =========================================================
+
 def cargar_ubicaciones():
-    """Carga la estructura de municipios, parroquias, sectores y sub-sectores."""
-    archivo_ubicaciones = "ubicaciones_carabobo.json"
-    
-    # Estructura por defecto
+    """Carga la estructura de estados, municipios, parroquias, sectores y sub-sectores."""
     default_ubicaciones = {
-        "Bejuma": {
-            "parroquias": ["Bejuma", "Chirgua", "Simón Bolívar"],
-            "sectores": {}
+        "Carabobo": {
+            "municipios": {
+                "Bejuma": {
+                    "parroquias": ["Bejuma", "Chirgua", "Simón Bolívar"],
+                    "sectores": {
+                        "Bejuma": [],
+                        "Chirgua": [],
+                        "Simón Bolívar": []
+                    }
+                },
+                "Carlos Arvelo": {
+                    "parroquias": ["Güigüe", "Tacarigua", "Belén"],
+                    "sectores": {
+                        "Güigüe": [],
+                        "Tacarigua": [],
+                        "Belén": []
+                    }
+                },
+                "Diego Ibarra": {
+                    "parroquias": ["Mariara", "Aguas Calientes"],
+                    "sectores": {
+                        "Mariara": [],
+                        "Aguas Calientes": []
+                    }
+                },
+                "Guacara": {
+                    "parroquias": ["Guacara", "Ciudad Alianza", "Yagua"],
+                    "sectores": {
+                        "Guacara": [],
+                        "Ciudad Alianza": [],
+                        "Yagua": []
+                    }
+                },
+                "Juan José Mora": {
+                    "parroquias": ["Morón", "Urama"],
+                    "sectores": {
+                        "Morón": [],
+                        "Urama": []
+                    }
+                },
+                "Libertador": {
+                    "parroquias": ["Tocuyito", "Independencia"],
+                    "sectores": {
+                        "Tocuyito": [],
+                        "Independencia": []
+                    }
+                },
+                "Los Guayos": {
+                    "parroquias": ["Los Guayos"],
+                    "sectores": {
+                        "Los Guayos": []
+                    }
+                },
+                "Miranda": {
+                    "parroquias": ["Miranda"],
+                    "sectores": {
+                        "Miranda": []
+                    }
+                },
+                "Montalbán": {
+                    "parroquias": ["Montalbán"],
+                    "sectores": {
+                        "Montalbán": []
+                    }
+                },
+                "Naguanagua": {
+                    "parroquias": ["Naguanagua"],
+                    "sectores": {
+                        "Naguanagua": []
+                    }
+                },
+                "Puerto Cabello": {
+                    "parroquias": ["Puerto Cabello", "Democracia", "Fraternidad", "Goaigoaza", "Juan José Flores", "Patanemo", "Borburata"],
+                    "sectores": {
+                        "Puerto Cabello": [],
+                        "Democracia": [],
+                        "Fraternidad": [],
+                        "Goaigoaza": [],
+                        "Juan José Flores": [],
+                        "Patanemo": [],
+                        "Borburata": ["Isla Larga"]
+                    }
+                },
+                "San Diego": {
+                    "parroquias": ["San Diego"],
+                    "sectores": {
+                        "San Diego": ["La Cumaca", "Hacienda La Cumaca"]
+                    }
+                },
+                "San Joaquín": {
+                    "parroquias": ["San Joaquín"],
+                    "sectores": {
+                        "San Joaquín": []
+                    }
+                }
+            }
         },
-        "Carlos Arvelo": {
-            "parroquias": ["Güigüe", "Tacarigua", "Belén"],
-            "sectores": {}
-        },
-        "Diego Ibarra": {
-            "parroquias": ["Mariara", "Aguas Calientes"],
-            "sectores": {}
-        },
-        "Guacara": {
-            "parroquias": ["Guacara", "Ciudad Alianza", "Yagua"],
-            "sectores": {}
-        },
-        "Juan José Mora": {
-            "parroquias": ["Morón", "Urama"],
-            "sectores": {}
-        },
-        "Libertador": {
-            "parroquias": ["Tocuyito", "Independencia"],
-            "sectores": {}
-        },
-        "Los Guayos": {
-            "parroquias": ["Los Guayos"],
-            "sectores": {}
-        },
-        "Miranda": {
-            "parroquias": ["Miranda"],
-            "sectores": {}
-        },
-        "Montalbán": {
-            "parroquias": ["Montalbán"],
-            "sectores": {}
-        },
-        "Naguanagua": {
-            "parroquias": ["Naguanagua"],
-            "sectores": {}
-        },
-        "Puerto Cabello": {
-            "parroquias": ["Puerto Cabello", "Democracia", "Fraternidad", "Goaigoaza", "Juan José Flores", "Patanemo", "Borburata"],
-            "sectores": {}
-        },
-        "San Diego": {
-            "parroquias": ["San Diego"],
-            "sectores": {}
-        },
-        "San Joaquín": {
-            "parroquias": ["San Joaquín"],
-            "sectores": {}
-        }
+        "Amazonas": {},
+        "Anzoátegui": {},
+        "Apure": {},
+        "Aragua": {},
+        "Barinas": {},
+        "Bolívar": {},
+        "Cojedes": {},
+        "Delta Amacuro": {},
+        "Distrito Capital": {},
+        "Falcón": {},
+        "Guárico": {},
+        "La Guaira": {},
+        "Lara": {},
+        "Mérida": {},
+        "Miranda": {},
+        "Monagas": {},
+        "Nueva Esparta": {},
+        "Portuguesa": {},
+        "Sucre": {},
+        "Táchira": {},
+        "Trujillo": {},
+        "Yaracuy": {},
+        "Zulia": {}
     }
     
-    if os.path.exists(archivo_ubicaciones):
+    if os.path.exists(ARCHIVO_UBICACIONES):
         try:
-            with open(archivo_ubicaciones, "r", encoding="utf-8") as f:
+            with open(ARCHIVO_UBICACIONES, "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
             pass
@@ -391,9 +480,8 @@ def cargar_ubicaciones():
 
 def guardar_ubicaciones(ubicaciones):
     """Guarda la estructura de ubicaciones."""
-    archivo_ubicaciones = "ubicaciones_carabobo.json"
     try:
-        with open(archivo_ubicaciones, "w", encoding="utf-8") as f:
+        with open(ARCHIVO_UBICACIONES, "w", encoding="utf-8") as f:
             json.dump(ubicaciones, f, ensure_ascii=False, indent=4)
     except:
         pass
@@ -470,14 +558,14 @@ st.markdown("""
 # =========================================================
 # MENÚ LATERAL (NAVEGACIÓN)
 # =========================================================
-st.sidebar.title("🚒 Bomberos Forestales")
+st.sidebar.title("Sistema Autónomo de Redacción Operativa (SARO)-BOMBEROS FORESTALES INPARQUES")
 st.sidebar.markdown("---")
 
 opcion_modulo = st.sidebar.radio(
     "Seleccione el Módulo:",
     [
-        "RESUMEN MATUTINO",
-        "RESUMEN VESPERTINO",
+        "PARTE MATUTINO",
+        "PARTE VESPERTINO",
         "REPORTES DE SERVICIOS",
         "REPORTES DE INCENDIOS", 
         "REPORTES MIXTOS"
@@ -490,81 +578,53 @@ st.sidebar.info("Sistema de Gestión e Informes Operativos")
 # =========================================================
 # MÓDULO 1: RESUMEN MATUTINO (PARTE GENERAL)
 # =========================================================
-if opcion_modulo == "RESUMEN MATUTINO":
-    st.header("🌅 Resumen Matutino (Parte General)")
+if opcion_modulo == "PARTE MATUTINO":
+    st.header("🌅 Parte Matutino")
 
     st.subheader("📌 Datos del Encabezado")
     col1, col2 = st.columns(2)
     with col1:
-        coord_estadal = st.text_input("Coordinador Forestal Estadal", "My (B) Mendoza Luis")
-        jefe_estacion = st.text_input("Jefe de Estación", "S/2 (B) Meléndez Alberlen")
-        jefe_seccion = st.text_input("Jefe de Sección / Auxiliar", "C/2 (B) Berroteran Luis")
+        coord_estadal = st.text_input("Coordinador Forestal Estadal", cargar_memoria("mat_coord_estadal", "My (B) Mendoza Luis"))
+        jefe_estacion = st.text_input("Jefe de Estación", cargar_memoria("mat_jefe_estacion", "S/2 (B) Meléndez Alberlen"))
+        jefe_seccion = st.text_input("Jefe de Sección / Auxiliar", cargar_memoria("mat_jefe_seccion", "C/2 (B) Berroteran Luis"))
         fecha_mat = st.date_input("Fecha", datetime.now(), key="f_mat")
     with col2:
-        parte_num = st.text_input("Parte N°", "240-2026")
-        seccion_guardia = st.text_input("Sección de Guardia", 'C')
-        pie_fuerza = st.number_input("Pie de Fuerza Total", min_value=1, value=49, step=1)
-        analista_mat = st.text_input("Analista de Guardia", "", key="a_mat")
+        parte_num = st.text_input("Parte N°", cargar_memoria("mat_parte_num", "240-2026"))
+        seccion_guardia = st.text_input("Sección de Guardia", cargar_memoria("mat_seccion_guardia", "C"))
+        pie_fuerza = st.number_input("Pie de Fuerza Total", min_value=1, value=int(cargar_memoria("mat_pie_fuerza", 49)), step=1)
+        analista_mat = st.text_input("Analista de Guardia", cargar_memoria("mat_analista", ""))
 
     st.subheader("👥 Desglose de Personal")
     c_p1, c_p2, c_p3 = st.columns(3)
     with c_p1:
-        p_guardia = st.number_input("Personal de Guardia", min_value=0, value=6)
-        p_retardado = st.number_input("Personal Retardado", min_value=0, value=0)
-        p_libre = st.number_input("Personal Libre", min_value=0, value=26)
+        p_guardia = st.number_input("Personal de Guardia", min_value=0, value=int(cargar_memoria("mat_p_guardia", 6)))
+        p_retardado = st.number_input("Personal Retardado", min_value=0, value=int(cargar_memoria("mat_p_retardado", 0)))
+        p_libre = st.number_input("Personal Libre", min_value=0, value=int(cargar_memoria("mat_p_libre", 26)))
     with c_p2:
-        p_permiso = st.number_input("Personal Permiso", min_value=0, value=0)
-        p_reposo = st.number_input("Personal de Reposo", min_value=0, value=4)
-        p_ausente = st.number_input("Personal Ausente", min_value=0, value=0)
+        p_permiso = st.number_input("Personal Permiso", min_value=0, value=int(cargar_memoria("mat_p_permiso", 0)))
+        p_reposo = st.number_input("Personal de Reposo", min_value=0, value=int(cargar_memoria("mat_p_reposo", 4)))
+        p_ausente = st.number_input("Personal Ausente", min_value=0, value=int(cargar_memoria("mat_p_ausente", 0)))
     with c_p3:
-        p_vacaciones = st.number_input("Personal de Vacaciones", min_value=0, value=2)
-        p_comision = st.number_input("Personal de Comisión", min_value=0, value=5)
-        p_pasantes = st.number_input("Personal Pasante", min_value=0, value=6)
-
-    st.subheader("📝 Observaciones")
-    cant_obs_mat = st.number_input("Cantidad de Observaciones", min_value=0, value=0, step=1, key="num_obs_mat")
-    
-    lista_textos_observaciones_mat = []
-    if cant_obs_mat > 0:
-        for i in range(int(cant_obs_mat)):
-            obs_texto = st.text_area(f"Redacte la Observación {i+1}", key=f"obs_input_mat_{i}", height=70)
-            
-            # === IA === Botón para mejorar cada observación
-            col_obs_btn1, col_obs_btn2 = st.columns([3, 1])
-            with col_obs_btn2:
-                if st.button(f"✨ IA Obs {i+1}", key=f"btn_ia_obs_mat_{i}"):
-                    if obs_texto.strip():
-                        with st.spinner("🤖 Mejorando..."):
-                            obs_mejorada = mejorar_redaccion_ia(obs_texto, "observación")
-                            st.session_state[f"obs_mejorada_mat_{i}"] = obs_mejorada
-                    else:
-                        st.warning("Escribe algo primero")
-            
-            if f"obs_mejorada_mat_{i}" in st.session_state:
-                obs_texto = st.text_area(f"Observación {i+1} mejorada (copia este texto)", 
-                                         value=st.session_state[f"obs_mejorada_mat_{i}"], 
-                                         key=f"obs_mejorada_display_mat_{i}", 
-                                         height=70)
-            
-            if obs_texto.strip():
-                lista_textos_observaciones_mat.append(obs_texto.strip())
+        p_vacaciones = st.number_input("Personal de Vacaciones", min_value=0, value=int(cargar_memoria("mat_p_vacaciones", 2)))
+        p_comision = st.number_input("Personal de Comisión", min_value=0, value=int(cargar_memoria("mat_p_comision", 5)))
+        p_pasantes = st.number_input("Personal Pasante", min_value=0, value=int(cargar_memoria("mat_p_pasantes", 6)))
 
     st.subheader("🚒 Estado de Unidades y Actividades")
     col_u1, col_u2 = st.columns(2)
     with col_u1:
-        serv_nocturnos = st.number_input("Servicios Nocturnos", min_value=0, value=0, key="srv_noct_mat")
+        serv_nocturnos = st.number_input("Servicios Nocturnos", min_value=0, value=int(cargar_memoria("mat_serv_nocturnos", 0)))
     with col_u2:
-        actividades_mat = st.number_input("Actividades", min_value=0, value=0, key="act_mat")
+        actividades_mat = st.number_input("Actividades", min_value=0, value=int(cargar_memoria("mat_actividades", 0)))
 
     st.subheader("📝 Detalle de Actividades")
     texto_actividad_mat = st.text_area(
         "Detalle de la actividad realizada:",
+        value=cargar_memoria("mat_texto_actividad", ""),
         placeholder="Ejemplo:\nEl día de hoy en horas matutinas se da una sesión educativa...",
         height=120,
         key="act_txt_mat"
     )
     
-    # === IA === Botón para mejorar actividad matutina
     col_act_btn1, col_act_btn2 = st.columns([3, 1])
     with col_act_btn2:
         if st.button("✨ IA Actividad", key="btn_ia_act_mat"):
@@ -576,24 +636,80 @@ if opcion_modulo == "RESUMEN MATUTINO":
                 st.warning("Escribe algo primero")
     
     if "act_mejorada_mat" in st.session_state:
-        texto_actividad_mat = st.text_area("Actividad mejorada (copia este texto)", 
-                                           value=st.session_state["act_mejorada_mat"], 
-                                           key="act_mejorada_display_mat", 
-                                           height=120)
+        st.text_area(
+            "Actividad mejorada:",
+            value=st.session_state["act_mejorada_mat"],
+            key="act_mejorada_display_mat",
+            height=120,
+            disabled=True
+        )
+        
+        col_conf1_act, col_conf2_act = st.columns(2)
+        with col_conf1_act:
+            if st.button("✅ Usar mejorado", key="btn_usar_act_mat"):
+                guardar_memoria("mat_texto_actividad", st.session_state["act_mejorada_mat"])
+                del st.session_state["act_mejorada_mat"]
+                st.rerun()
+        with col_conf2_act:
+            if st.button("❌ Mantener original", key="btn_mantener_act_mat"):
+                del st.session_state["act_mejorada_mat"]
+                st.rerun()
+
+    st.subheader("📝 Observaciones")
+    
+    cant_obs_mat = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("mat_cant_obs", 0)), step=1)
+    
+    texto_observaciones_mat = st.text_area(
+        "Redacte las observaciones (una por línea):",
+        value=cargar_memoria("mat_texto_obs", ""),
+        placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
+        height=150,
+        key="obs_txt_mat"
+    )
+    
+    col_obs_btn1, col_obs_btn2 = st.columns([3, 1])
+    with col_obs_btn2:
+        if st.button("✨ IA Obs", key="btn_ia_obs_mat"):
+            if texto_observaciones_mat.strip():
+                with st.spinner("🤖 Mejorando..."):
+                    obs_mejorada = mejorar_redaccion_ia(texto_observaciones_mat, "observación")
+                    st.session_state["obs_mejorada_mat"] = obs_mejorada
+            else:
+                st.warning("Escribe algo primero")
+    
+    if "obs_mejorada_mat" in st.session_state:
+        st.text_area(
+            "Observaciones mejoradas:",
+            value=st.session_state["obs_mejorada_mat"],
+            key="obs_mejorada_display_mat",
+            height=150,
+            disabled=True
+        )
+        
+        col_confirm1, col_confirm2 = st.columns(2)
+        with col_confirm1:
+            if st.button("✅ Usar mejorado", key="btn_usar_obs_mat"):
+                guardar_memoria("mat_texto_obs", st.session_state["obs_mejorada_mat"])
+                del st.session_state["obs_mejorada_mat"]
+                st.rerun()
+        with col_confirm2:
+            if st.button("❌ Mantener original", key="btn_mantener_obs_mat"):
+                del st.session_state["obs_mejorada_mat"]
+                st.rerun()
 
     unidades_op = st.text_area(
-        "Unidades Operativas", 
-        ". Unidad 4.4 Transporte de Personal Matrícula AD050WM\n. Unidad UM-45 Tipo Moto", 
+        "Unidades Operativas",
+        cargar_memoria("mat_unidades_op", ". Unidad 4.4 Transporte de Personal Matrícula AD050WM\n. Unidad UM-45 Tipo Moto"),
         height=80
     )
 
     unidades_inop = st.text_area(
-        "Unidades Inoperativas", 
-        ". Unidad Cisterna 4.2 (Falla de Almacenador de energía)\n. Unidad UM-41 Tipo Moto (Por falla del Sistema eléctrico del Arranque)\n. Unidad UM-42 Tipo Moto (Motor)\n. Unidad UM-43 Tipo Moto (Motor)\n. Unidad UM-44 Tipo Moto (Motor)", 
+        "Unidades Inoperativas",
+        cargar_memoria("mat_unidades_inop", ". Unidad Cisterna 4.2 (Falla de Almacenador de energía)\n. Unidad UM-41 Tipo Moto (Por falla del Sistema eléctrico del Arranque)\n. Unidad UM-42 Tipo Moto (Motor)\n. Unidad UM-43 Tipo Moto (Motor)\n. Unidad UM-44 Tipo Moto (Motor)"),
         height=120
     )
 
-    cond_meteo = st.text_input("Condiciones Meteorológicas", "Cielo despejado en el Sector la Cumaca, Sub-Sector Fila Las Josefinas Municipio San Diego Estado Carabobo.")
+    cond_meteo = st.text_input("Condiciones Meteorológicas", cargar_memoria("mat_cond_meteo", "Cielo despejado en el sector la Cumaca, sub-sector fila Las Josefinas municipio San Diego estado Carabobo."))
 
     if 'parte_matutino_generado' not in st.session_state:
         st.session_state.parte_matutino_generado = ""
@@ -605,13 +721,48 @@ if opcion_modulo == "RESUMEN MATUTINO":
         nombre_dia = dias[fecha_mat.weekday()]
         fecha_str = f"{nombre_dia} {fecha_mat.strftime('%d/%m/%Y')}"
 
-        if cant_obs_mat == 0 or not lista_textos_observaciones_mat:
+        # Guardar en memoria JSON
+        guardar_memoria("mat_coord_estadal", coord_estadal)
+        guardar_memoria("mat_jefe_estacion", jefe_estacion)
+        guardar_memoria("mat_jefe_seccion", jefe_seccion)
+        guardar_memoria("mat_parte_num", parte_num)
+        guardar_memoria("mat_seccion_guardia", seccion_guardia)
+        guardar_memoria("mat_pie_fuerza", pie_fuerza)
+        guardar_memoria("mat_analista", analista_mat)
+        guardar_memoria("mat_p_guardia", p_guardia)
+        guardar_memoria("mat_p_retardado", p_retardado)
+        guardar_memoria("mat_p_libre", p_libre)
+        guardar_memoria("mat_p_permiso", p_permiso)
+        guardar_memoria("mat_p_reposo", p_reposo)
+        guardar_memoria("mat_p_ausente", p_ausente)
+        guardar_memoria("mat_p_vacaciones", p_vacaciones)
+        guardar_memoria("mat_p_comision", p_comision)
+        guardar_memoria("mat_p_pasantes", p_pasantes)
+        guardar_memoria("mat_serv_nocturnos", serv_nocturnos)
+        guardar_memoria("mat_actividades", actividades_mat)
+        guardar_memoria("mat_texto_actividad", texto_actividad_mat)
+        guardar_memoria("mat_cant_obs", cant_obs_mat)
+        guardar_memoria("mat_texto_obs", texto_observaciones_mat)
+        guardar_memoria("mat_unidades_op", unidades_op)
+        guardar_memoria("mat_unidades_inop", unidades_inop)
+        guardar_memoria("mat_cond_meteo", cond_meteo)
+
+        if cant_obs_mat == 0 or not texto_observaciones_mat.strip():
             texto_observaciones_ws = "00"
         else:
-            texto_observaciones_ws = f"{int(cant_obs_mat):02d}\n"
-            for idx, txt in enumerate(lista_textos_observaciones_mat, 1):
-                texto_observaciones_ws += f"- {txt}\n"
+            lineas_obs = [l.strip() for l in texto_observaciones_mat.splitlines() if l.strip()]
+            texto_observaciones_ws = f"{len(lineas_obs):02d}\n"
+            for i, linea in enumerate(lineas_obs, 1):
+                texto_observaciones_ws += f"{i}. {linea}\n"
 
+        if actividades_mat == 0 or not texto_actividad_mat.strip():
+            texto_actividad_ws = "00"
+        else:
+            lineas_act = [l.strip() for l in texto_actividad_mat.splitlines() if l.strip()]
+            texto_actividad_ws = f"{len(lineas_act):02d}\n"
+            for i, linea in enumerate(lineas_act, 1):
+                texto_actividad_ws += f"{i}. {linea}\n"
+                
         servicios_del_dia = consumir_y_limpiar_servicios()
 
         st.session_state.parte_matutino_generado = f"""*SISTEMA NACIONAL DE GESTIÓN DE RIESGO*
@@ -654,11 +805,9 @@ if opcion_modulo == "RESUMEN MATUTINO":
 
 *SERVICIOS NOCTURNOS:* {serv_nocturnos:02d}
 
-*SERVICIOS Y ACCIONES DEL DÍA:*
 {servicios_del_dia}
 
-*ACTIVIDAD:* {actividades_mat:02d}
-{texto_actividad_mat}
+*ACTIVIDAD:* {texto_actividad_ws}
 
 *UNIDADES OPERATIVAS:* {len(unidades_op.strip().splitlines()) if unidades_op.strip() else 0:02d}
 {unidades_op}
@@ -673,31 +822,31 @@ if opcion_modulo == "RESUMEN MATUTINO":
     if st.session_state.parte_matutino_generado:
         st.subheader("📋 Parte Matutino Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.parte_matutino_generado, language=None)
-
+        
 # =========================================================
 # MÓDULO 2: PARTE VESPERTINO
 # =========================================================
-elif opcion_modulo == "RESUMEN VESPERTINO":
+elif opcion_modulo == "PARTE VESPERTINO":
     st.header("🌆 Parte Vespertino")
 
     st.subheader("📌 Datos Principales")
     col_v1, col_v2 = st.columns(2)
     with col_v1:
-        estacion_vesp = st.text_input("Estación", "EBF LAS JOSEFINAS", key="est_vesp")
+        estacion_vesp = st.text_input("Estación", cargar_memoria("vesp_estacion", "EBF LAS JOSEFINAS"))
         fecha_vesp = st.date_input("Fecha", datetime.now(), key="f_vesp")
     with col_v2:
-        serv_realizados = st.number_input("Servicios Realizados", min_value=0, value=0, key="sr_vesp")
-        actividades_vesp = st.number_input("Actividades", min_value=0, value=1, key="act_vesp")
+        serv_realizados = st.number_input("Servicios Realizados", min_value=0, value=int(cargar_memoria("vesp_serv_realizados", 0)))
+        actividades_vesp = st.number_input("Actividades", min_value=0, value=int(cargar_memoria("vesp_actividades", 1)))
 
     st.subheader("📝 Actividad Realizada")
     texto_actividad = st.text_area(
         "Detalle de la actividad realizada:",
+        value=cargar_memoria("vesp_texto_actividad", ""),
         placeholder="Ejemplo:\nEl día de hoy en horas matutinas se da una sesión educativa al personal pasante...",
         height=120,
         key="act_txt_vesp"
     )
     
-    # === IA === Botón para mejorar actividad vespertina
     col_act_btn1_v, col_act_btn2_v = st.columns([3, 1])
     with col_act_btn2_v:
         if st.button("✨ IA Actividad", key="btn_ia_act_vesp"):
@@ -709,46 +858,74 @@ elif opcion_modulo == "RESUMEN VESPERTINO":
                 st.warning("Escribe algo primero")
     
     if "act_mejorada_vesp" in st.session_state:
-        texto_actividad = st.text_area("Actividad mejorada (copia este texto)", 
-                                       value=st.session_state["act_mejorada_vesp"], 
-                                       key="act_mejorada_display_vesp", 
-                                       height=120)
-
+        st.text_area(
+            "Actividad mejorada:",
+            value=st.session_state["act_mejorada_vesp"],
+            key="act_mejorada_display_vesp",
+            height=120,
+            disabled=True
+        )
+        
+        col_conf1_act_v, col_conf2_act_v = st.columns(2)
+        with col_conf1_act_v:
+            if st.button("✅ Usar mejorado", key="btn_usar_act_vesp"):
+                guardar_memoria("vesp_texto_actividad", st.session_state["act_mejorada_vesp"])
+                del st.session_state["act_mejorada_vesp"]
+                st.rerun()
+        with col_conf2_act_v:
+            if st.button("❌ Mantener original", key="btn_mantener_act_vesp"):
+                del st.session_state["act_mejorada_vesp"]
+                st.rerun()
+                
+                
     st.subheader("📋 Observaciones")
-    cant_obs_vesp = st.number_input("Cantidad de Observaciones", min_value=0, value=0, step=1, key="c_obs_vesp")
     
-    lista_textos_observaciones_vesp = []
-    if cant_obs_vesp > 0:
-        for i in range(int(cant_obs_vesp)):
-            obs_texto_v = st.text_area(f"Redacte la Observación {i+1}", key=f"obs_input_vesp_{i}", height=70)
-            
-            # === IA === Botón para mejorar cada observación vespertina
-            col_obs_btn1_v, col_obs_btn2_v = st.columns([3, 1])
-            with col_obs_btn2_v:
-                if st.button(f"✨ IA Obs {i+1}", key=f"btn_ia_obs_vesp_{i}"):
-                    if obs_texto_v.strip():
-                        with st.spinner("🤖 Mejorando..."):
-                            obs_mejorada_v = mejorar_redaccion_ia(obs_texto_v, "observación")
-                            st.session_state[f"obs_mejorada_vesp_{i}"] = obs_mejorada_v
-                    else:
-                        st.warning("Escribe algo primero")
-            
-            if f"obs_mejorada_vesp_{i}" in st.session_state:
-                obs_texto_v = st.text_area(f"Observación {i+1} mejorada (copia este texto)", 
-                                           value=st.session_state[f"obs_mejorada_vesp_{i}"], 
-                                           key=f"obs_mejorada_display_vesp_{i}", 
-                                           height=70)
-            
-            if obs_texto_v.strip():
-                lista_textos_observaciones_vesp.append(obs_texto_v.strip())
+    cant_obs_vesp = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("vesp_cant_obs", 0)), step=1)
+    
+    texto_observaciones_vesp = st.text_area(
+        "Redacte las observaciones (una por línea):",
+        value=cargar_memoria("vesp_texto_obs", ""),
+        placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
+        height=150,
+        key="obs_txt_vesp"
+    )
+    
+    col_obs_btn1_v, col_obs_btn2_v = st.columns([3, 1])
+    with col_obs_btn2_v:
+        if st.button("✨ IA Obs", key="btn_ia_obs_vesp"):
+            if texto_observaciones_vesp.strip():
+                with st.spinner("🤖 Mejorando..."):
+                    obs_mejorada_v = mejorar_redaccion_ia(texto_observaciones_vesp, "observación")
+                    st.session_state["obs_mejorada_vesp"] = obs_mejorada_v
+            else:
+                st.warning("Escribe algo primero")
+    
+    if "obs_mejorada_vesp" in st.session_state:
+        st.text_area(
+            "Observaciones mejoradas:",
+            value=st.session_state["obs_mejorada_vesp"],
+            key="obs_mejorada_display_vesp",
+            height=150,
+            disabled=True
+        )
+        
+        col_conf1_v, col_conf2_v = st.columns(2)
+        with col_conf1_v:
+            if st.button("✅ Usar mejorado", key="btn_usar_obs_vesp"):
+                guardar_memoria("vesp_texto_obs", st.session_state["obs_mejorada_vesp"])
+                del st.session_state["obs_mejorada_vesp"]
+                st.rerun()
+        with col_conf2_v:
+            if st.button("❌ Mantener original", key="btn_mantener_obs_vesp"):
+                del st.session_state["obs_mejorada_vesp"]
+                st.rerun()
 
     st.subheader("🌤️ Clima y Analista")
     cond_meteo_vesp = st.text_input(
         "Condiciones Meteorológicas",
-        "Cielo Despejado en el Sector La Cumaca, parroquia San Diego, Municipio San Diego, Estado Carabobo.",
-        key="meteo_vesp"
+        cargar_memoria("vesp_cond_meteo", "Cielo Despejado en el sector La Cumaca, parroquia San Diego, municipio San Diego, estado Carabobo.")
     )
-    analista_vesp = st.text_input("Analista que Registra", "", key="a_vesp")
+    analista_vesp = st.text_input("Analista que Registra", cargar_memoria("vesp_analista", ""))
 
     if 'parte_vespertino_generado' not in st.session_state:
         st.session_state.parte_vespertino_generado = ""
@@ -760,12 +937,31 @@ elif opcion_modulo == "RESUMEN VESPERTINO":
         nombre_dia = dias[fecha_vesp.weekday()]
         fecha_str = f"{nombre_dia} {fecha_vesp.strftime('%d/%m/%Y')}"
 
-        if cant_obs_vesp == 0 or not lista_textos_observaciones_vesp:
+        # Guardar en memoria JSON
+        guardar_memoria("vesp_estacion", estacion_vesp)
+        guardar_memoria("vesp_serv_realizados", serv_realizados)
+        guardar_memoria("vesp_actividades", actividades_vesp)
+        guardar_memoria("vesp_texto_actividad", texto_actividad)
+        guardar_memoria("vesp_cant_obs", cant_obs_vesp)
+        guardar_memoria("vesp_texto_obs", texto_observaciones_vesp)
+        guardar_memoria("vesp_cond_meteo", cond_meteo_vesp)
+        guardar_memoria("vesp_analista", analista_vesp)
+
+        if cant_obs_vesp == 0 or not texto_observaciones_vesp.strip():
             texto_observaciones_ws_v = "00"
         else:
-            texto_observaciones_ws_v = f"{int(cant_obs_vesp):02d}\n"
-            for idx, txt in enumerate(lista_textos_observaciones_vesp, 1):
-                texto_observaciones_ws_v += f"- {txt}\n"
+            lineas_obs_v = [l.strip() for l in texto_observaciones_vesp.splitlines() if l.strip()]
+            texto_observaciones_ws_v = f"{len(lineas_obs_v):02d}\n"
+            for i, linea in enumerate(lineas_obs_v, 1):
+                texto_observaciones_ws_v += f"{i}. {linea}\n"
+
+        if actividades_vesp == 0 or not texto_actividad.strip():
+            texto_actividad_ws_v = "00"
+        else:
+            lineas_act_v = [l.strip() for l in texto_actividad.splitlines() if l.strip()]
+            texto_actividad_ws_v = f"{len(lineas_act_v):02d}\n"
+            for i, linea in enumerate(lineas_act_v, 1):
+                texto_actividad_ws_v += f"{i}. {linea}\n"
 
         servicios_del_dia_vesp = consumir_y_limpiar_servicios()
 
@@ -783,9 +979,7 @@ elif opcion_modulo == "RESUMEN VESPERTINO":
 
 {servicios_del_dia_vesp}
 
-*ACTIVIDAD:* {actividades_vesp:02d}
-
-{texto_actividad}
+*ACTIVIDAD:* {texto_actividad_ws_v}
 
 *OBSERVACIONES:* {texto_observaciones_ws_v}
 
@@ -806,12 +1000,15 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
     if 'lista_servicios' not in st.session_state:
         st.session_state.lista_servicios = cargar_servicios_persistencia()
 
-    # Cargar ubicaciones
     ubicaciones = cargar_ubicaciones()
 
     col_s1, col_s2 = st.columns(2)
     with col_s1:
-        tipo_servicio = st.selectbox("Tipo de Servicio", st.session_state.lista_servicios)
+        tipo_servicio = st.selectbox(
+            "Tipo de Servicio",
+            st.session_state.lista_servicios,
+            index=st.session_state.lista_servicios.index(cargar_memoria("srv_tipo_servicio", st.session_state.lista_servicios[0]))
+        )
         
         with st.expander("➕ / 🗑️ Agregar o Borrar Tipo de Servicio"):
             nuevo_servicio = st.text_input("Escriba un nuevo tipo de servicio:")
@@ -835,115 +1032,147 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
 
         fecha_srv = st.date_input("Fecha del Servicio", datetime.now(), key="f_srv")
         hora_inicio = st.time_input("Hora de Inicio", datetime.now().time(), key="h_ini")
-        num_servicio = st.text_input("Número de Servicio", "", placeholder="Ej: 04-0267-2026")
+        num_servicio = st.text_input("Número de Servicio", cargar_memoria("srv_num_servicio", ""), placeholder="Ej: 04-0267-2026")
         
         st.markdown("📍 **Ubicación Geográfica**")
-        srv_estado = st.text_input("Estado", "Carabobo", key="s_est")
         
-        # Selección de Municipio
-        srv_municipio = st.selectbox("Municipio", list(ubicaciones.keys()), key="s_mun")
+        estados_venezuela = list(ubicaciones.keys())
+        srv_estado = st.selectbox(
+            "Estado",
+            estados_venezuela,
+            index=estados_venezuela.index(cargar_memoria("srv_estado", "Carabobo"))
+        )
         
-        # Selección de Parroquia según municipio
-        parroquias_disponibles = ubicaciones[srv_municipio]["parroquias"]
-        srv_parroquia = st.selectbox("Parroquia", parroquias_disponibles, key="s_par")
-        
-        # ---- Gestión de Sectores y Sub-sectores ----
-        with st.expander("➕ / 🗑️ Gestionar Sectores y Sub-sectores"):
-            # Obtener sectores de la parroquia seleccionada
-            sectores_de_parroquia = ubicaciones[srv_municipio]["sectores"].get(srv_parroquia, {})
+        if srv_estado == "Carabobo":
+            municipios_carabobo = ubicaciones["Carabobo"]["municipios"]
+            srv_municipio = st.selectbox(
+                "Municipio",
+                list(municipios_carabobo.keys()),
+                index=list(municipios_carabobo.keys()).index(cargar_memoria("srv_municipio", "San Diego"))
+            )
             
-            if sectores_de_parroquia:
-                st.write("**Sectores existentes:**")
-                for sector_nombre, sub_sectores_lista in sectores_de_parroquia.items():
-                    st.write(f"- {sector_nombre} ({len(sub_sectores_lista)} sub-sectores)")
+            parroquias_disponibles = municipios_carabobo[srv_municipio]["parroquias"]
+            srv_parroquia = st.selectbox(
+                "Parroquia",
+                parroquias_disponibles,
+                index=parroquias_disponibles.index(cargar_memoria("srv_parroquia", parroquias_disponibles[0]))
+            )
             
-            st.markdown("---")
-            st.write("**Agregar Sector:**")
-            nuevo_sector = st.text_input("Nombre del nuevo sector:")
-            if st.button("➕ Agregar Sector", key="btn_agregar_sector_srv"):
-                if nuevo_sector.strip():
-                    if srv_parroquia not in ubicaciones[srv_municipio]["sectores"]:
-                        ubicaciones[srv_municipio]["sectores"][srv_parroquia] = {}
-                    if nuevo_sector.strip().upper() not in ubicaciones[srv_municipio]["sectores"][srv_parroquia]:
-                        ubicaciones[srv_municipio]["sectores"][srv_parroquia][nuevo_sector.strip()] = []
-                        guardar_ubicaciones(ubicaciones)
-                        st.success(f"✅ Sector '{nuevo_sector}' agregado a {srv_parroquia}")
-                        st.rerun()
-                    else:
-                        st.warning("Ese sector ya existe.")
-                else:
-                    st.warning("Escribe el nombre del sector.")
-            
-            # Eliminar sector
-            if sectores_de_parroquia:
-                sector_a_eliminar = st.selectbox("Seleccione sector a eliminar:", list(sectores_de_parroquia.keys()), key="sec_eliminar_srv")
-                if st.button("🗑️ Eliminar Sector", key="btn_eliminar_sector_srv"):
-                    if sector_a_eliminar in ubicaciones[srv_municipio]["sectores"][srv_parroquia]:
-                        del ubicaciones[srv_municipio]["sectores"][srv_parroquia][sector_a_eliminar]
-                        guardar_ubicaciones(ubicaciones)
-                        st.success(f"✅ Sector '{sector_a_eliminar}' eliminado")
-                        st.rerun()
-            
-            st.markdown("---")
-            st.write("**Agregar Sub-sector a Sector existente:**")
-            if sectores_de_parroquia:
-                sector_para_sub = st.selectbox("Seleccione sector:", list(sectores_de_parroquia.keys()), key="sec_para_sub_srv")
-                nuevo_sub_sector = st.text_input("Nombre del nuevo sub-sector:")
-                if st.button("➕ Agregar Sub-sector", key="btn_agregar_sub_srv"):
-                    if nuevo_sub_sector.strip():
-                        if nuevo_sub_sector.strip().upper() not in ubicaciones[srv_municipio]["sectores"][srv_parroquia][sector_para_sub]:
-                            ubicaciones[srv_municipio]["sectores"][srv_parroquia][sector_para_sub].append(nuevo_sub_sector.strip())
+            with st.expander("➕ / 🗑️ Gestionar Sectores y Sub-sectores"):
+                sectores_de_parroquia = municipios_carabobo[srv_municipio]["sectores"].get(srv_parroquia, {})
+                
+                if sectores_de_parroquia:
+                    st.write("**Sectores existentes:**")
+                    for sector_nombre, sub_sectores_lista in sectores_de_parroquia.items():
+                        st.write(f"- {sector_nombre} ({len(sub_sectores_lista)} sub-sectores)")
+                
+                st.markdown("---")
+                st.write("**Agregar Sector:**")
+                nuevo_sector = st.text_input("Nombre del nuevo sector:")
+                if st.button("➕ Agregar Sector", key="btn_agregar_sector_srv"):
+                    if nuevo_sector.strip():
+                        if srv_parroquia not in municipios_carabobo[srv_municipio]["sectores"]:
+                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia] = {}
+                        if nuevo_sector.strip() not in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]:
+                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][nuevo_sector.strip()] = []
                             guardar_ubicaciones(ubicaciones)
-                            st.success(f"✅ Sub-sector '{nuevo_sub_sector}' agregado a {sector_para_sub}")
+                            st.success(f"✅ Sector '{nuevo_sector}' agregado a {srv_parroquia}")
                             st.rerun()
                         else:
-                            st.warning("Ese sub-sector ya existe.")
+                            st.warning("Ese sector ya existe.")
                     else:
-                        st.warning("Escribe el nombre del sub-sector.")
+                        st.warning("Escribe el nombre del sector.")
                 
-                # Eliminar sub-sector
-                sub_sectores_de_sector = ubicaciones[srv_municipio]["sectores"][srv_parroquia].get(sector_para_sub, [])
-                if sub_sectores_de_sector:
-                    sub_a_eliminar = st.selectbox("Seleccione sub-sector a eliminar:", sub_sectores_de_sector, key="sub_eliminar_srv")
-                    if st.button("🗑️ Eliminar Sub-sector", key="btn_eliminar_sub_srv"):
-                        if sub_a_eliminar in ubicaciones[srv_municipio]["sectores"][srv_parroquia][sector_para_sub]:
-                            ubicaciones[srv_municipio]["sectores"][srv_parroquia][sector_para_sub].remove(sub_a_eliminar)
+                if sectores_de_parroquia:
+                    sector_a_eliminar = st.selectbox("Seleccione sector a eliminar:", list(sectores_de_parroquia.keys()), key="sec_eliminar_srv")
+                    if st.button("🗑️ Eliminar Sector", key="btn_eliminar_sector_srv"):
+                        if sector_a_eliminar in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]:
+                            del municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_a_eliminar]
                             guardar_ubicaciones(ubicaciones)
-                            st.success(f"✅ Sub-sector '{sub_a_eliminar}' eliminado")
+                            st.success(f"✅ Sector '{sector_a_eliminar}' eliminado")
                             st.rerun()
-            else:
-                st.info("No hay sectores. Agrega un sector primero.")
-        
-        # ---- Selección de Sector y Sub-sector ----
-        sectores_de_parroquia = ubicaciones[srv_municipio]["sectores"].get(srv_parroquia, {})
-        
-        if sectores_de_parroquia:
-            srv_sector = st.selectbox("Sector", list(sectores_de_parroquia.keys()), key="s_sec")
+                
+                st.markdown("---")
+                st.write("**Agregar Sub-sector a Sector existente:**")
+                if sectores_de_parroquia:
+                    sector_para_sub = st.selectbox("Seleccione sector:", list(sectores_de_parroquia.keys()), key="sec_para_sub_srv")
+                    nuevo_sub_sector = st.text_input("Nombre del nuevo sub-sector:")
+                    if st.button("➕ Agregar Sub-sector", key="btn_agregar_sub_srv"):
+                        if nuevo_sub_sector.strip():
+                            if nuevo_sub_sector.strip() not in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub]:
+                                municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub].append(nuevo_sub_sector.strip())
+                                guardar_ubicaciones(ubicaciones)
+                                st.success(f"✅ Sub-sector '{nuevo_sub_sector}' agregado a {sector_para_sub}")
+                                st.rerun()
+                            else:
+                                st.warning("Ese sub-sector ya existe.")
+                        else:
+                            st.warning("Escribe el nombre del sub-sector.")
+                    
+                    sub_sectores_de_sector = municipios_carabobo[srv_municipio]["sectores"][srv_parroquia].get(sector_para_sub, [])
+                    if sub_sectores_de_sector:
+                        sub_a_eliminar = st.selectbox("Seleccione sub-sector a eliminar:", sub_sectores_de_sector, key="sub_eliminar_srv")
+                        if st.button("🗑️ Eliminar Sub-sector", key="btn_eliminar_sub_srv"):
+                            if sub_a_eliminar in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub]:
+                                municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub].remove(sub_a_eliminar)
+                                guardar_ubicaciones(ubicaciones)
+                                st.success(f"✅ Sub-sector '{sub_a_eliminar}' eliminado")
+                                st.rerun()
+                else:
+                    st.info("No hay sectores. Agrega un sector primero.")
             
-            sub_sectores_del_sector = sectores_de_parroquia[srv_sector]
-            if sub_sectores_del_sector:
-                srv_sub_sector = st.selectbox("Sub-sector", sub_sectores_del_sector, key="s_sub_sec")
+            sectores_de_parroquia = municipios_carabobo[srv_municipio]["sectores"].get(srv_parroquia, {})
+            
+            if sectores_de_parroquia:
+                srv_sector = st.selectbox(
+                    "Sector",
+                    list(sectores_de_parroquia.keys()),
+                    index=list(sectores_de_parroquia.keys()).index(cargar_memoria("srv_sector", list(sectores_de_parroquia.keys())[0]))
+                )
+                
+                sub_sectores_del_sector = sectores_de_parroquia[srv_sector]
+                if sub_sectores_del_sector:
+                    srv_sub_sector = st.selectbox(
+                        "Sub-sector",
+                        sub_sectores_del_sector,
+                        index=sub_sectores_del_sector.index(cargar_memoria("srv_sub_sector", sub_sectores_del_sector[0]))
+                    )
+                else:
+                    srv_sub_sector = st.text_input("Sub-sector (no hay registrados)", "", key="s_sub_sec")
             else:
-                srv_sub_sector = st.text_input("Sub-sector (no hay registrados)", "", key="s_sub_sec")
+                srv_sector = st.text_input("Sector (no hay registrados)", cargar_memoria("srv_sector", ""), key="s_sec")
+                srv_sub_sector = st.text_input("Sub-sector", cargar_memoria("srv_sub_sector", ""), key="s_sub_sec")
         else:
-            srv_sector = st.text_input("Sector (no hay registrados)", "", key="s_sec")
-            srv_sub_sector = st.text_input("Sub-sector", "", key="s_sub_sec")
+            srv_municipio = st.text_input("Municipio", cargar_memoria("srv_municipio", ""), key="s_mun")
+            srv_parroquia = st.text_input("Parroquia", cargar_memoria("srv_parroquia", ""), key="s_par")
+            srv_sector = st.text_input("Sector", cargar_memoria("srv_sector", ""), key="s_sec")
+            srv_sub_sector = st.text_input("Sub-sector", cargar_memoria("srv_sub_sector", ""), key="s_sub_sec")
         
-        ubicacion_srv = f"{srv_sub_sector}, {srv_sector}, Parroquia {srv_parroquia}, Municipio {srv_municipio}, Estado {srv_estado}"
+        ubicacion_srv = f"{srv_sub_sector}, {srv_sector}, parroquia {srv_parroquia}, municipio {srv_municipio}, estado {srv_estado}"
 
-        jefe_comision = st.text_input("Jefe de Comisión", "", placeholder="Indique el rango y nombre")
+        jefe_comision = st.text_input("Jefe de Comisión", cargar_memoria("srv_jefe_comision", ""), placeholder="Indique el rango y nombre")
 
     with col_s2:
-        estatus_srv = st.selectbox("Estatus", ["en proceso", "Finalizado"])
+        estatus_srv = st.selectbox(
+            "Estatus",
+            ["en proceso", "Finalizado"],
+            index=["en proceso", "Finalizado"].index(cargar_memoria("srv_estatus", "en proceso"))
+        )
         hora_fin = st.time_input("Hora de Finalizado", datetime.now().time(), key="h_fin")
-        efectivos_srv = st.number_input("Número de Efectivos", min_value=1, value=3, step=1)
-        latitud_srv = st.number_input("Latitud", value=10.3047984, format="%.7f", key="lat_srv")
-        longitud_srv = st.number_input("Longitud", value=-67.9307846, format="%.7f", key="lon_srv")
+        efectivos_srv = st.number_input("Número de Efectivos", min_value=1, value=int(cargar_memoria("srv_efectivos", 3)), step=1)
+        latitud_srv = st.number_input("Latitud", value=float(cargar_memoria("srv_latitud", 10.3047984)), format="%.7f", key="lat_srv")
+        longitud_srv = st.number_input("Longitud", value=float(cargar_memoria("srv_longitud", -67.9307846)), format="%.7f", key="lon_srv")
 
     st.subheader("📌 Observaciones")
-    num_observaciones = st.number_input("Cantidad de Observaciones", min_value=0, value=0, step=1, key="num_obs")
+    num_observaciones = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("srv_num_obs", 0)), step=1)
     
-    texto_observaciones_srv = st.text_area("Redacte las observaciones (una por línea):", height=150, key="obs_txt_srv")
+    texto_observaciones_srv = st.text_area(
+        "Redacte las observaciones (una por línea):",
+        value=cargar_memoria("srv_texto_obs", ""),
+        placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
+        height=150,
+        key="obs_txt_srv"
+    )
     
     col_obs_btn1_s, col_obs_btn2_s = st.columns([3, 1])
     with col_obs_btn2_s:
@@ -956,14 +1185,35 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 st.warning("Escribe algo primero")
     
     if "obs_mejorada_srv" in st.session_state:
-        texto_observaciones_srv = st.text_area("Observaciones mejoradas:", value=st.session_state["obs_mejorada_srv"], key="obs_mejorada_display_srv", height=150)
+        st.text_area(
+            "Observaciones mejoradas:",
+            value=st.session_state["obs_mejorada_srv"],
+            key="obs_mejorada_display_srv",
+            height=150,
+            disabled=True
+        )
+        
+        col_conf1_s, col_conf2_s = st.columns(2)
+        with col_conf1_s:
+            if st.button("✅ Usar mejorado", key="btn_usar_obs_srv"):
+                guardar_memoria("srv_texto_obs", st.session_state["obs_mejorada_srv"])
+                del st.session_state["obs_mejorada_srv"]
+                st.rerun()
+        with col_conf2_s:
+            if st.button("❌ Mantener original", key="btn_mantener_obs_srv"):
+                del st.session_state["obs_mejorada_srv"]
+                st.rerun()
 
     st.subheader("🚓 Organismos Presentes")
     
     if 'lista_org_oficiales' not in st.session_state:
         st.session_state.lista_org_oficiales = cargar_organismos_persistencia()
 
-    org_seleccionados = st.multiselect("Seleccione los organismos:", st.session_state.lista_org_oficiales, default=[])
+    org_seleccionados = st.multiselect(
+        "Seleccione los organismos:",
+        st.session_state.lista_org_oficiales,
+        default=cargar_memoria("srv_org_seleccionados", [])
+    )
     
     with st.expander("➕ Agregar organismo de seguridad"):
         nuevo_org = st.text_input("Escriba el nombre del organismo:")
@@ -983,10 +1233,21 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         for idx, org in enumerate(org_seleccionados):
             with cols_org[idx % 4]:
                 sigla_mostrar = org.split(" (")[0]
-                cantidades_org[org] = st.number_input(sigla_mostrar, min_value=1, value=1, step=1, key=f"cant_{org}")
+                cantidades_org[org] = st.number_input(
+                    sigla_mostrar,
+                    min_value=1,
+                    value=int(cargar_memoria(f"srv_cant_{org}", 1)),
+                    step=1,
+                    key=f"cant_{org}"
+                )
 
     st.subheader("📝 Reseña y Acciones Operativas")
-    resena_borrador = st.text_area("Reseña:", height=100)
+    resena_borrador = st.text_area(
+        "Reseña:",
+        value=cargar_memoria("srv_resena", ""),
+        placeholder="Ejemplo: Por instrucciones del jefe...",
+        height=100
+    )
     
     col_res_btn1, col_res_btn2 = st.columns([3, 1])
     with col_res_btn2:
@@ -999,9 +1260,31 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 st.warning("Escribe algo primero")
     
     if "resena_mejorada_srv" in st.session_state:
-        resena_borrador = st.text_area("Reseña mejorada:", value=st.session_state["resena_mejorada_srv"], key="resena_mejorada_display_srv", height=100)
+        st.text_area(
+            "Reseña mejorada:",
+            value=st.session_state["resena_mejorada_srv"],
+            key="resena_mejorada_display_srv",
+            height=100,
+            disabled=True
+        )
+        
+        col_res_conf1, col_res_conf2 = st.columns(2)
+        with col_res_conf1:
+            if st.button("✅ Usar mejorado", key="btn_usar_resena_srv"):
+                guardar_memoria("srv_resena", st.session_state["resena_mejorada_srv"])
+                del st.session_state["resena_mejorada_srv"]
+                st.rerun()
+        with col_res_conf2:
+            if st.button("❌ Mantener original", key="btn_mantener_resena_srv"):
+                del st.session_state["resena_mejorada_srv"]
+                st.rerun()
     
-    acciones_borrador = st.text_area("Acciones Realizadas:", height=150)
+    acciones_borrador = st.text_area(
+        "Acciones Realizadas:",
+        value=cargar_memoria("srv_acciones", ""),
+        placeholder="Ejemplo: 07:29 Hrs Se destaca comisión...",
+        height=150
+    )
     
     col_acc_btn1, col_acc_btn2 = st.columns([3, 1])
     with col_acc_btn2:
@@ -1014,9 +1297,26 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 st.warning("Escribe algo primero")
     
     if "acciones_mejoradas_srv" in st.session_state:
-        acciones_borrador = st.text_area("Acciones mejoradas:", value=st.session_state["acciones_mejoradas_srv"], key="acciones_mejoradas_display_srv", height=150)
+        st.text_area(
+            "Acciones mejoradas:",
+            value=st.session_state["acciones_mejoradas_srv"],
+            key="acciones_mejoradas_display_srv",
+            height=150,
+            disabled=True
+        )
+        
+        col_acc_conf1, col_acc_conf2 = st.columns(2)
+        with col_acc_conf1:
+            if st.button("✅ Usar mejorado", key="btn_usar_acciones_srv"):
+                guardar_memoria("srv_acciones", st.session_state["acciones_mejoradas_srv"])
+                del st.session_state["acciones_mejoradas_srv"]
+                st.rerun()
+        with col_acc_conf2:
+            if st.button("❌ Mantener original", key="btn_mantener_acciones_srv"):
+                del st.session_state["acciones_mejoradas_srv"]
+                st.rerun()
     
-    analista_srv = st.text_input("Analista que Registra", "", key="a_srv")
+    analista_srv = st.text_input("Analista que Registra", cargar_memoria("srv_analista", ""))
 
     if 'reporte_generado' not in st.session_state:
         st.session_state.reporte_generado = ""
@@ -1031,6 +1331,29 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dia_str = dias_semana[fecha_srv.weekday()]
                 
+                # Guardar en memoria JSON
+                guardar_memoria("srv_tipo_servicio", tipo_servicio)
+                guardar_memoria("srv_num_servicio", num_servicio)
+                guardar_memoria("srv_estado", srv_estado)
+                guardar_memoria("srv_municipio", srv_municipio)
+                guardar_memoria("srv_parroquia", srv_parroquia)
+                guardar_memoria("srv_sector", srv_sector)
+                guardar_memoria("srv_sub_sector", srv_sub_sector)
+                guardar_memoria("srv_jefe_comision", jefe_comision)
+                guardar_memoria("srv_estatus", estatus_srv)
+                guardar_memoria("srv_efectivos", efectivos_srv)
+                guardar_memoria("srv_latitud", latitud_srv)
+                guardar_memoria("srv_longitud", longitud_srv)
+                guardar_memoria("srv_num_obs", num_observaciones)
+                guardar_memoria("srv_texto_obs", texto_observaciones_srv)
+                guardar_memoria("srv_org_seleccionados", org_seleccionados)
+                guardar_memoria("srv_resena", resena_borrador)
+                guardar_memoria("srv_acciones", acciones_borrador)
+                guardar_memoria("srv_analista", analista_srv)
+                
+                for org, cant in cantidades_org.items():
+                    guardar_memoria(f"srv_cant_{org}", cant)
+                
                 texto_organismos_ws = ""
                 if cantidades_org:
                     for org, cant in cantidades_org.items():
@@ -1044,8 +1367,8 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 else:
                     lineas_obs_srv = [l.strip() for l in texto_observaciones_srv.splitlines() if l.strip()]
                     texto_observaciones_ws = f"{len(lineas_obs_srv):02d}\n"
-                    for linea in lineas_obs_srv:
-                        texto_observaciones_ws += f"- {linea}\n"
+                    for i, linea in enumerate(lineas_obs_srv, 1):
+                        texto_observaciones_ws += f"{i}. {linea}\n"
                 
                 st.session_state.reporte_generado = f"""*SISTEMA NACIONAL DE GESTIÓN DE RIESGOS*
 
@@ -1095,7 +1418,6 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
 *ANALISTA:* 
 {analista_srv}"""
 
-                # Guardar automáticamente para los partes
                 datos_servicio = {
                     "tipo_servicio": tipo_servicio,
                     "num_servicio": num_servicio,
@@ -1120,14 +1442,14 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
     # =========================================================
     # SECCIÓN: INCENDIOS PRELIMINARES GUARDADOS
     # =========================================================
-    st.subheader("📂 Incendios Preliminares Guardados")
+    st.subheader("📂 Incendios en Proceso Guardados")
     
     preliminares = cargar_incendios_preliminares()
     
     if preliminares:
         st.info(f"Hay {len(preliminares)} incendio(s) guardado(s) para edición")
         
-        with st.expander("Ver / Editar Preliminares"):
+        with st.expander("Ver / Editar Progresivos"):
             for idx, preliminar in enumerate(preliminares):
                 st.write(f"**{idx+1}. {preliminar.get('tipo_incendio', 'Incendio')} - {preliminar.get('num_servicio', 'Sin número')}**")
                 st.write(f"   Estatus: {preliminar.get('estatus', 'N/A')}")
@@ -1138,8 +1460,8 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                     if st.button(f"📝 Cargar", key=f"cargar_pre_{idx}"):
                         st.session_state["preliminar_cargado"] = preliminar
                         st.session_state["mostrar_preliminar"] = True
-                        st.session_state["resena_actual"] = preliminar.get("resena", "")
-                        st.session_state["acciones_actual"] = preliminar.get("acciones", "")
+                        guardar_memoria("inc_resena", preliminar.get("resena", ""))
+                        guardar_memoria("inc_acciones", preliminar.get("acciones", ""))
                         st.rerun()
                 with col_pre2:
                     if st.button(f"🗑️ Eliminar", key=f"eliminar_pre_{idx}"):
@@ -1148,7 +1470,7 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                         st.rerun()
                 st.markdown("---")
     else:
-        st.info("No hay incendios preliminares guardados.")
+        st.info("No hay incendios en proceso guardados.")
     
     st.markdown("---")
 
@@ -1156,7 +1478,6 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
     # FORMULARIO DE INCENDIO
     # =========================================================
     
-    # Cargar datos del preliminar si existe
     if "preliminar_cargado" in st.session_state:
         pre = st.session_state["preliminar_cargado"]
         default_tipo_reporte = pre.get("tipo_reporte", "Preliminar")
@@ -1178,24 +1499,24 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         default_estatus = pre.get("estatus", "en proceso")
         default_delegado = pre.get("delegado", "C/2 (B) Reyes Edwin")
     else:
-        default_tipo_reporte = "Preliminar"
-        default_tipo_incendio = "Incendio de Vegetacion"
-        default_num_servicio = ""
-        default_comandante = ""
-        default_estacion = "EBF Las Josefinas"
-        default_sub_sector = ""
-        default_sector = ""
-        default_municipio = "San Diego"
-        default_parroquia = "San Diego"
-        default_estado = "Carabobo"
-        default_abrae = "P/N San Esteban"
-        default_efectivos = 10
-        default_recursos = "Batidor Forestal"
-        default_unidades = "Unidad Tipo Moto 41"
-        default_resena = ""
-        default_acciones = ""
-        default_estatus = "en proceso"
-        default_delegado = "C/2 (B) Reyes Edwin"
+        default_tipo_reporte = cargar_memoria("inc_tipo_reporte", "Preliminar")
+        default_tipo_incendio = cargar_memoria("inc_tipo_incendio", "Incendio de Vegetacion")
+        default_num_servicio = cargar_memoria("inc_num_servicio", "")
+        default_comandante = cargar_memoria("inc_comandante", "")
+        default_estacion = cargar_memoria("inc_estacion", "EBF Las Josefinas")
+        default_sub_sector = cargar_memoria("inc_sub_sector", "")
+        default_sector = cargar_memoria("inc_sector", "")
+        default_municipio = cargar_memoria("inc_municipio", "San Diego")
+        default_parroquia = cargar_memoria("inc_parroquia", "San Diego")
+        default_estado = cargar_memoria("inc_estado", "Carabobo")
+        default_abrae = cargar_memoria("inc_abrae", "P/N San Esteban")
+        default_efectivos = int(cargar_memoria("inc_efectivos", 10))
+        default_recursos = cargar_memoria("inc_recursos", "Batidor Forestal")
+        default_unidades = cargar_memoria("inc_unidades", "Unidad Tipo Moto 41")
+        default_resena = cargar_memoria("inc_resena", "")
+        default_acciones = cargar_memoria("inc_acciones", "")
+        default_estatus = cargar_memoria("inc_estatus", "en proceso")
+        default_delegado = cargar_memoria("inc_delegado", "C/2 (B) Reyes Edwin")
 
     col_i1, col_i2 = st.columns(2)
     with col_i1:
@@ -1226,108 +1547,59 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         estacion_ebf = st.text_input("Estación / Base", default_estacion)
 
     with col_i2:
-        estado_inc = st.text_input("Estado", default_estado)
-        
-        # Cargar ubicaciones
         ubicaciones = cargar_ubicaciones()
-        
-        # Selección de Municipio
-        municipio = st.selectbox(
-            "Municipio", 
-            list(ubicaciones.keys()), 
-            index=list(ubicaciones.keys()).index(default_municipio) if default_municipio in ubicaciones else 0,
-            key="municipio_inc"
+        estados_venezuela = list(ubicaciones.keys())
+        estado_inc = st.selectbox(
+            "Estado",
+            estados_venezuela,
+            index=estados_venezuela.index(default_estado) if default_estado in estados_venezuela else 0,
+            key="estado_inc"
         )
         
-        # Selección de Parroquia según municipio
-        parroquias_disponibles_inc = ubicaciones[municipio]["parroquias"]
-        parroquia = st.selectbox(
-            "Parroquia", 
-            parroquias_disponibles_inc,
-            index=parroquias_disponibles_inc.index(default_parroquia) if default_parroquia in parroquias_disponibles_inc else 0,
-            key="parroquia_inc"
-        )
-        
-        # ---- Gestión de Sectores y Sub-sectores ----
-        with st.expander("➕ / 🗑️ Gestionar Sectores y Sub-sectores"):
-            sectores_de_parroquia_inc = ubicaciones[municipio]["sectores"].get(parroquia, {})
+        if estado_inc == "Carabobo":
+            municipios_carabobo = ubicaciones["Carabobo"]["municipios"]
+            municipio = st.selectbox(
+                "Municipio",
+                list(municipios_carabobo.keys()),
+                index=list(municipios_carabobo.keys()).index(default_municipio) if default_municipio in municipios_carabobo else 0,
+                key="municipio_inc"
+            )
             
-            if sectores_de_parroquia_inc:
-                st.write("**Sectores existentes:**")
-                for sector_nombre, sub_sectores_lista in sectores_de_parroquia_inc.items():
-                    st.write(f"- {sector_nombre} ({len(sub_sectores_lista)} sub-sectores)")
+            parroquias_disponibles_inc = municipios_carabobo[municipio]["parroquias"]
+            parroquia = st.selectbox(
+                "Parroquia",
+                parroquias_disponibles_inc,
+                index=parroquias_disponibles_inc.index(default_parroquia) if default_parroquia in parroquias_disponibles_inc else 0,
+                key="parroquia_inc"
+            )
             
-            st.markdown("---")
-            st.write("**Agregar Sector:**")
-            nuevo_sector_inc = st.text_input("Nombre del nuevo sector:", key="nuevo_sector_inc")
-            if st.button("➕ Agregar Sector", key="btn_agregar_sector_inc"):
-                if nuevo_sector_inc.strip():
-                    if parroquia not in ubicaciones[municipio]["sectores"]:
-                        ubicaciones[municipio]["sectores"][parroquia] = {}
-                    if nuevo_sector_inc.strip() not in ubicaciones[municipio]["sectores"][parroquia]:
-                        ubicaciones[municipio]["sectores"][parroquia][nuevo_sector_inc.strip()] = []
-                        guardar_ubicaciones(ubicaciones)
-                        st.success(f"✅ Sector '{nuevo_sector_inc}' agregado a {parroquia}")
-                        st.rerun()
-                    else:
-                        st.warning("Ese sector ya existe.")
-                else:
-                    st.warning("Escribe el nombre del sector.")
-            
-            if sectores_de_parroquia_inc:
-                sector_a_eliminar_inc = st.selectbox("Seleccione sector a eliminar:", list(sectores_de_parroquia_inc.keys()), key="sec_eliminar_inc")
-                if st.button("🗑️ Eliminar Sector", key="btn_eliminar_sector_inc"):
-                    if sector_a_eliminar_inc in ubicaciones[municipio]["sectores"][parroquia]:
-                        del ubicaciones[municipio]["sectores"][parroquia][sector_a_eliminar_inc]
-                        guardar_ubicaciones(ubicaciones)
-                        st.success(f"✅ Sector '{sector_a_eliminar_inc}' eliminado")
-                        st.rerun()
-            
-            st.markdown("---")
-            st.write("**Agregar Sub-sector a Sector existente:**")
-            if sectores_de_parroquia_inc:
-                sector_para_sub_inc = st.selectbox("Seleccione sector:", list(sectores_de_parroquia_inc.keys()), key="sec_para_sub_inc")
-                nuevo_sub_sector_inc = st.text_input("Nombre del nuevo sub-sector:", key="nuevo_sub_sector_inc")
-                if st.button("➕ Agregar Sub-sector", key="btn_agregar_sub_inc"):
-                    if nuevo_sub_sector_inc.strip():
-                        if nuevo_sub_sector_inc.strip() not in ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc]:
-                            ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc].append(nuevo_sub_sector_inc.strip())
-                            guardar_ubicaciones(ubicaciones)
-                            st.success(f"✅ Sub-sector '{nuevo_sub_sector_inc}' agregado a {sector_para_sub_inc}")
-                            st.rerun()
-                        else:
-                            st.warning("Ese sub-sector ya existe.")
-                    else:
-                        st.warning("Escribe el nombre del sub-sector.")
-                
-                sub_sectores_de_sector_inc = ubicaciones[municipio]["sectores"][parroquia].get(sector_para_sub_inc, [])
-                if sub_sectores_de_sector_inc:
-                    sub_a_eliminar_inc = st.selectbox("Seleccione sub-sector a eliminar:", sub_sectores_de_sector_inc, key="sub_eliminar_inc")
-                    if st.button("🗑️ Eliminar Sub-sector", key="btn_eliminar_sub_inc"):
-                        if sub_a_eliminar_inc in ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc]:
-                            ubicaciones[municipio]["sectores"][parroquia][sector_para_sub_inc].remove(sub_a_eliminar_inc)
-                            guardar_ubicaciones(ubicaciones)
-                            st.success(f"✅ Sub-sector '{sub_a_eliminar_inc}' eliminado")
-                            st.rerun()
-            else:
-                st.info("No hay sectores. Agrega un sector primero.")
-        
-              # ---- Selección de Sector y Sub-sector ----
-        sectores_de_parroquia_inc = ubicaciones[municipio]["sectores"].get(parroquia, {})
-        
-        if sectores_de_parroquia_inc:
-            sector = st.selectbox("Sector", list(sectores_de_parroquia_inc.keys()), key="sector_inc")
-            
-            sub_sectores_del_sector_inc = sectores_de_parroquia_inc[sector]
-            if sub_sectores_del_sector_inc:
-                sub_sector = st.selectbox("Sub-sector", sub_sectores_del_sector_inc, key="sub_sector_inc")
-            else:
-                sub_sector = st.text_input("Sub-sector (no hay registrados)", "", key="sub_sector_inc")
+            sectores_de_parroquia_inc = municipios_carabobo[municipio]["sectores"].get(parroquia, [])
         else:
-            sector = st.text_input("Sector (no hay registrados)", "", key="sector_inc")
-            sub_sector = st.text_input("Sub-sector", "", key="sub_sector_inc")
+            municipio = st.text_input("Municipio", default_municipio, key="municipio_inc")
+            parroquia = st.text_input("Parroquia", default_parroquia, key="parroquia_inc")
+            sectores_de_parroquia_inc = []
         
-        # ---- ABRAE (SIEMPRE VISIBLE) ----
+        if estado_inc == "Carabobo":
+            with st.expander("➕ / 🗑️ Gestionar Sectores y Sub-sectores"):
+                if sectores_de_parroquia_inc:
+                    st.write("**Sectores existentes:**")
+                    for sector_nombre in sectores_de_parroquia_inc:
+                        st.write(f"- {sector_nombre}")
+                else:
+                    st.info("No hay sectores registrados para esta parroquia.")
+        
+        if estado_inc == "Carabobo" and sectores_de_parroquia_inc:
+            sector = st.selectbox(
+                "Sector",
+                sectores_de_parroquia_inc,
+                index=sectores_de_parroquia_inc.index(default_sector) if default_sector in sectores_de_parroquia_inc else 0,
+                key="sector_inc"
+            )
+            sub_sector = st.text_input("Sub-sector", default_sub_sector, key="sub_sector_inc")
+        else:
+            sector = st.text_input("Sector", default_sector, key="sector_inc")
+            sub_sector = st.text_input("Sub-sector", default_sub_sector, key="sub_sector_inc")
+        
         lista_abrae = ["P/N San Esteban",
             "Fuera de ABRAE",
             "Parque Nacional",
@@ -1468,35 +1740,53 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
 
     st.subheader("📝 Bitácora, Estatus y Autoridades")
     
-    cant_obs_inc = st.number_input("Cantidad de Observaciones (Opcional)", min_value=0, value=0, step=1, key="num_obs_inc")
-    lista_textos_observaciones_inc = []
-    if cant_obs_inc > 0:
-        for i in range(int(cant_obs_inc)):
-            obs_texto_i = st.text_area(f"Redacte la Observación {i+1}", key=f"obs_input_inc_{i}", height=70)
-            
-            col_obs_btn1_i, col_obs_btn2_i = st.columns([3, 1])
-            with col_obs_btn2_i:
-                if st.button(f"✨ IA Obs {i+1}", key=f"btn_ia_obs_inc_{i}"):
-                    if obs_texto_i.strip():
-                        with st.spinner("🤖 Mejorando..."):
-                            obs_mejorada_i = mejorar_redaccion_ia(obs_texto_i, "observación")
-                            st.session_state[f"obs_mejorada_inc_{i}"] = obs_mejorada_i
-                    else:
-                        st.warning("Escribe algo primero")
-            
-            if f"obs_mejorada_inc_{i}" in st.session_state:
-                obs_texto_i = st.text_area(f"Observación {i+1} mejorada (copia este texto)", 
-                                           value=st.session_state[f"obs_mejorada_inc_{i}"], 
-                                           key=f"obs_mejorada_display_inc_{i}", 
-                                           height=70)
-            
-            if obs_texto_i.strip():
-                lista_textos_observaciones_inc.append(obs_texto_i.strip())
+    cant_obs_inc = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("inc_cant_obs", 0)), step=1)
+    
+    texto_observaciones_inc = st.text_area(
+        "Redacte las observaciones (una por línea):",
+        value=cargar_memoria("inc_texto_obs", ""),
+        placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
+        height=150,
+        key="obs_txt_inc"
+    )
+    
+    col_obs_btn1_i, col_obs_btn2_i = st.columns([3, 1])
+    with col_obs_btn2_i:
+        if st.button("✨ IA Obs", key="btn_ia_obs_inc"):
+            if texto_observaciones_inc.strip():
+                with st.spinner("🤖 Mejorando..."):
+                    obs_mejorada_i = mejorar_redaccion_ia(texto_observaciones_inc, "observación")
+                    st.session_state["obs_mejorada_inc"] = obs_mejorada_i
+            else:
+                st.warning("Escribe algo primero")
+    
+    if "obs_mejorada_inc" in st.session_state:
+        st.text_area(
+            "Observaciones mejoradas:",
+            value=st.session_state["obs_mejorada_inc"],
+            key="obs_mejorada_display_inc",
+            height=150,
+            disabled=True
+        )
+        
+        col_conf1_i, col_conf2_i = st.columns(2)
+        with col_conf1_i:
+            if st.button("✅ Usar mejorado", key="btn_usar_obs_inc"):
+                guardar_memoria("inc_texto_obs", st.session_state["obs_mejorada_inc"])
+                del st.session_state["obs_mejorada_inc"]
+                st.rerun()
+        with col_conf2_i:
+            if st.button("❌ Mantener original", key="btn_mantener_obs_inc"):
+                del st.session_state["obs_mejorada_inc"]
+                st.rerun()
 
-    if "resena_actual" not in st.session_state:
-        st.session_state["resena_actual"] = default_resena
-
-    resena_inc = st.text_area("RESEÑA:", key="resena_actual", placeholder="Ejemplo: Durante recorrido...", height=100)
+    resena_inc = st.text_area(
+        "RESEÑA:",
+        value=cargar_memoria("inc_resena", default_resena),
+        placeholder="Ejemplo: Durante recorrido...",
+        height=100,
+        key="resena_txt_inc"
+    )
     
     col_res_btn1_i, col_res_btn2_i = st.columns([3, 1])
     with col_res_btn2_i:
@@ -1504,15 +1794,37 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if resena_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
                     resena_mejorada_inc_ia = mejorar_redaccion_ia(resena_inc, "reseña de incendio")
-                    st.session_state["resena_actual"] = resena_mejorada_inc_ia
-                    st.rerun()
+                    st.session_state["resena_mejorada_inc"] = resena_mejorada_inc_ia
             else:
                 st.warning("Escribe algo primero")
     
-    if "acciones_actual" not in st.session_state:
-        st.session_state["acciones_actual"] = default_acciones
+    if "resena_mejorada_inc" in st.session_state:
+        st.text_area(
+            "Reseña mejorada:",
+            value=st.session_state["resena_mejorada_inc"],
+            key="resena_mejorada_display_inc",
+            height=100,
+            disabled=True
+        )
+        
+        col_res_conf1_i, col_res_conf2_i = st.columns(2)
+        with col_res_conf1_i:
+            if st.button("✅ Usar mejorado", key="btn_usar_resena_inc"):
+                guardar_memoria("inc_resena", st.session_state["resena_mejorada_inc"])
+                del st.session_state["resena_mejorada_inc"]
+                st.rerun()
+        with col_res_conf2_i:
+            if st.button("❌ Mantener original", key="btn_mantener_resena_inc"):
+                del st.session_state["resena_mejorada_inc"]
+                st.rerun()
 
-    acciones_inc = st.text_area("ACCIÓN REALIZADA (Bitácora de Eventos):", key="acciones_actual", placeholder="Ejemplo:\n15:10 Hrs Se destaca...", height=200)
+    acciones_inc = st.text_area(
+        "ACCIÓN REALIZADA (Bitácora de Eventos):",
+        value=cargar_memoria("inc_acciones", default_acciones),
+        placeholder="Ejemplo:\n15:10 Hrs Se destaca...",
+        height=200,
+        key="acciones_txt_inc"
+    )
     
     col_acc_btn1_i, col_acc_btn2_i = st.columns([3, 1])
     with col_acc_btn2_i:
@@ -1520,10 +1832,29 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if acciones_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
                     acciones_mejoradas_inc_ia = mejorar_redaccion_ia(acciones_inc, "bitácora de eventos")
-                    st.session_state["acciones_actual"] = acciones_mejoradas_inc_ia
-                    st.rerun()
+                    st.session_state["acciones_mejoradas_inc"] = acciones_mejoradas_inc_ia
             else:
                 st.warning("Escribe algo primero")
+    
+    if "acciones_mejoradas_inc" in st.session_state:
+        st.text_area(
+            "Acciones mejoradas:",
+            value=st.session_state["acciones_mejoradas_inc"],
+            key="acciones_mejoradas_display_inc",
+            height=200,
+            disabled=True
+        )
+        
+        col_acc_conf1_i, col_acc_conf2_i = st.columns(2)
+        with col_acc_conf1_i:
+            if st.button("✅ Usar mejorado", key="btn_usar_acciones_inc"):
+                guardar_memoria("inc_acciones", st.session_state["acciones_mejoradas_inc"])
+                del st.session_state["acciones_mejoradas_inc"]
+                st.rerun()
+        with col_acc_conf2_i:
+            if st.button("❌ Mantener original", key="btn_mantener_acciones_inc"):
+                del st.session_state["acciones_mejoradas_inc"]
+                st.rerun()
 
     col_e1, col_e2, col_e3 = st.columns(3)
     with col_e1:
@@ -1544,6 +1875,28 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         else:
             with st.spinner("🤖 Formateando el reporte de incendio..."):
                 
+                # Guardar en memoria JSON
+                guardar_memoria("inc_tipo_reporte", tipo_reporte)
+                guardar_memoria("inc_tipo_incendio", tipo_incendio)
+                guardar_memoria("inc_num_servicio", num_servicio_inc)
+                guardar_memoria("inc_comandante", comandante_escena)
+                guardar_memoria("inc_estacion", estacion_ebf)
+                guardar_memoria("inc_estado", estado_inc)
+                guardar_memoria("inc_municipio", municipio)
+                guardar_memoria("inc_parroquia", parroquia)
+                guardar_memoria("inc_sector", sector)
+                guardar_memoria("inc_sub_sector", sub_sector)
+                guardar_memoria("inc_abrae", abrae_inc)
+                guardar_memoria("inc_efectivos", efectivos_inc)
+                guardar_memoria("inc_recursos", recursos_disp)
+                guardar_memoria("inc_unidades", unidades_disp)
+                guardar_memoria("inc_estatus", estatus_inc)
+                guardar_memoria("inc_delegado", delegado_ame)
+                guardar_memoria("inc_cant_obs", cant_obs_inc)
+                guardar_memoria("inc_texto_obs", texto_observaciones_inc)
+                guardar_memoria("inc_resena", resena_inc)
+                guardar_memoria("inc_acciones", acciones_inc)
+                
                 area_total_ha = area_herbacea + area_arbustiva + area_arboria
                 
                 texto_vegetacion = ""
@@ -1563,12 +1916,13 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                     texto_area_afectada += f"- Arbórea (Alta): {area_arboria} ha\n"
                 texto_area_afectada += f"Área Afectada Total: {area_total_ha} ha"
 
-                if cant_obs_inc == 0 or not lista_textos_observaciones_inc:
+                if cant_obs_inc == 0 or not texto_observaciones_inc.strip():
                     texto_observaciones_ws_i = "00"
                 else:
-                    texto_observaciones_ws_i = f"{int(cant_obs_inc):02d}\n"
-                    for idx, txt in enumerate(lista_textos_observaciones_inc, 1):
-                        texto_observaciones_ws_i += f"- {txt}\n"
+                    lineas_obs_inc = [l.strip() for l in texto_observaciones_inc.splitlines() if l.strip()]
+                    texto_observaciones_ws_i = f"{len(lineas_obs_inc):02d}\n"
+                    for i, linea in enumerate(lineas_obs_inc, 1):
+                        texto_observaciones_ws_i += f"{i}. {linea}\n"
 
                 datos_incendio = {
                     "tipo_servicio": tipo_incendio,
@@ -1685,6 +2039,7 @@ BFI: {efectivos_inc:02d}
     if st.session_state.incendio_generado:
         st.subheader("📋 Reporte de Incendio Formateado")
         st.code(st.session_state.incendio_generado, language=None)
+        
 # =========================================================
 # MÓDULO 5: REPORTES MIXTOS
 # =========================================================
@@ -1702,12 +2057,11 @@ elif opcion_modulo == "REPORTES MIXTOS":
         
         texto_ni = st.text_area(
             "Contenido de la Nota Informativa",
-            value=". El día hoy en horas matutinas se da continuidad a la  Formación en servicio impartida por el coordinador Forestal (B) Mayor Mendoza Luis al personal perteneciente al Estado Portuguesa y personal de planta con el tema: introducción del sistema S.A.R",
+            value=cargar_memoria("ni_texto", ". El día hoy en horas matutinas se da continuidad a la Formación en servicio impartida por el coordinador Forestal (B) Mayor Mendoza Luis al personal perteneciente al estado Portuguesa y personal de planta con el tema: introducción del sistema S.A.R"),
             height=130,
             key="txt_ni"
         )
         
-        # === IA === Botón para mejorar nota informativa
         col_ni_btn1, col_ni_btn2 = st.columns([3, 1])
         with col_ni_btn2:
             if st.button("✨ IA Nota", key="btn_ia_nota_ni"):
@@ -1719,12 +2073,26 @@ elif opcion_modulo == "REPORTES MIXTOS":
                     st.warning("Escribe algo primero")
         
         if "nota_mejorada_ni" in st.session_state:
-            texto_ni = st.text_area("Nota mejorada (copia este texto)", 
-                                    value=st.session_state["nota_mejorada_ni"], 
-                                    key="nota_mejorada_display_ni", 
-                                    height=130)
+            st.text_area(
+                "Nota mejorada:",
+                value=st.session_state["nota_mejorada_ni"],
+                key="nota_mejorada_display_ni",
+                height=130,
+                disabled=True
+            )
+            
+            col_ni_conf1, col_ni_conf2 = st.columns(2)
+            with col_ni_conf1:
+                if st.button("✅ Usar mejorado", key="btn_usar_nota_ni"):
+                    guardar_memoria("ni_texto", st.session_state["nota_mejorada_ni"])
+                    del st.session_state["nota_mejorada_ni"]
+                    st.rerun()
+            with col_ni_conf2:
+                if st.button("❌ Mantener original", key="btn_mantener_nota_ni"):
+                    del st.session_state["nota_mejorada_ni"]
+                    st.rerun()
         
-        coord_ni = st.text_input("Coordinador Forestal", "My (B) Mendoza Luis", key="c_ni")
+        coord_ni = st.text_input("Coordinador Forestal", cargar_memoria("ni_coord", "My (B) Mendoza Luis"))
 
         if 'nota_informativa_generada' not in st.session_state:
             st.session_state.nota_informativa_generada = ""
@@ -1735,6 +2103,10 @@ elif opcion_modulo == "REPORTES MIXTOS":
             dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
             nombre_dia = dias[fecha_ni.weekday()].capitalize()
             fecha_str_ni = f"{nombre_dia} {fecha_ni.strftime('%d/%m/%Y')}"
+
+            # Guardar en memoria JSON
+            guardar_memoria("ni_texto", texto_ni)
+            guardar_memoria("ni_coord", coord_ni)
 
             st.session_state.nota_informativa_generada = f"""*SISTEMA NACIONAL DE GESTION DE RIESGOS*
 
@@ -1763,21 +2135,20 @@ elif opcion_modulo == "REPORTES MIXTOS":
         
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            estado_met = st.text_input("Estado", "Carabobo", key="est_met")
-            estacion_met = st.text_input("Estación", "EBF Las Josefinas", key="estc_met")
+            estado_met = st.text_input("estado", cargar_memoria("met_estado", "Carabobo"))
+            estacion_met = st.text_input("Estación", cargar_memoria("met_estacion", "EBF Las Josefinas"))
             fecha_met = st.date_input("Fecha", datetime.now(), key="f_met_rep")
         with col_m2:
-            hora_met = st.text_input("Hora", "07:26 Hrs", key="h_met")
-            capacidad_op = st.number_input("Capacidad Operativa", min_value=0, value=20, step=1, key="cap_op_met")
+            hora_met = st.text_input("Hora", cargar_memoria("met_hora", "07:26 Hrs"))
+            capacidad_op = st.number_input("Capacidad Operativa", min_value=0, value=int(cargar_memoria("met_capacidad", 20)), step=1)
 
         condiciones_met = st.text_area(
             "Condiciones Atmosféricas",
-            value="Precipitaciones Leves  en el Sector La Cumaca, Parroquia San Diego, Municipio San Diego, Estado Carabobo",
+            value=cargar_memoria("met_condiciones", "Precipitaciones leves en el sector La Cumaca, parroquia San Diego, municipio San Diego, estado Carabobo"),
             height=80,
             key="cond_met"
         )
         
-        # === IA === Botón para mejorar condiciones meteorológicas
         col_met_btn1, col_met_btn2 = st.columns([3, 1])
         with col_met_btn2:
             if st.button("✨ IA Condiciones", key="btn_ia_cond_met"):
@@ -1789,19 +2160,32 @@ elif opcion_modulo == "REPORTES MIXTOS":
                     st.warning("Escribe algo primero")
         
         if "cond_mejorada_met" in st.session_state:
-            condiciones_met = st.text_area("Condiciones mejoradas (copia este texto)", 
-                                           value=st.session_state["cond_mejorada_met"], 
-                                           key="cond_mejorada_display_met", 
-                                           height=80)
+            st.text_area(
+                "Condiciones mejoradas:",
+                value=st.session_state["cond_mejorada_met"],
+                key="cond_mejorada_display_met",
+                height=80,
+                disabled=True
+            )
+            
+            col_met_conf1, col_met_conf2 = st.columns(2)
+            with col_met_conf1:
+                if st.button("✅ Usar mejorado", key="btn_usar_cond_met"):
+                    guardar_memoria("met_condiciones", st.session_state["cond_mejorada_met"])
+                    del st.session_state["cond_mejorada_met"]
+                    st.rerun()
+            with col_met_conf2:
+                if st.button("❌ Mantener original", key="btn_mantener_cond_met"):
+                    del st.session_state["cond_mejorada_met"]
+                    st.rerun()
         
         acciones_met = st.text_area(
             "Acciones Realizadas",
-            value="El personal se encuentra de manera preventiva para atender cualquier eventualidad que se pueda suscitar en la zona.",
+            value=cargar_memoria("met_acciones", "El personal se encuentra de manera preventiva para atender cualquier eventualidad que se pueda suscitar en la zona."),
             height=80,
             key="acc_met"
         )
         
-        # === IA === Botón para mejorar acciones meteorológicas
         col_acc_met_btn1, col_acc_met_btn2 = st.columns([3, 1])
         with col_acc_met_btn2:
             if st.button("✨ IA Acciones", key="btn_ia_acc_met"):
@@ -1813,10 +2197,24 @@ elif opcion_modulo == "REPORTES MIXTOS":
                     st.warning("Escribe algo primero")
         
         if "acc_mejorada_met" in st.session_state:
-            acciones_met = st.text_area("Acciones mejoradas (copia este texto)", 
-                                        value=st.session_state["acc_mejorada_met"], 
-                                        key="acc_mejorada_display_met", 
-                                        height=80)
+            st.text_area(
+                "Acciones mejoradas:",
+                value=st.session_state["acc_mejorada_met"],
+                key="acc_mejorada_display_met",
+                height=80,
+                disabled=True
+            )
+            
+            col_acc_met_conf1, col_acc_met_conf2 = st.columns(2)
+            with col_acc_met_conf1:
+                if st.button("✅ Usar mejorado", key="btn_usar_acc_met"):
+                    guardar_memoria("met_acciones", st.session_state["acc_mejorada_met"])
+                    del st.session_state["acc_mejorada_met"]
+                    st.rerun()
+            with col_acc_met_conf2:
+                if st.button("❌ Mantener original", key="btn_mantener_acc_met"):
+                    del st.session_state["acc_mejorada_met"]
+                    st.rerun()
 
         if 'reporte_met_generado' not in st.session_state:
             st.session_state.reporte_met_generado = ""
@@ -1827,6 +2225,14 @@ elif opcion_modulo == "REPORTES MIXTOS":
             dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
             nombre_dia = dias[fecha_met.weekday()].capitalize()
             fecha_str_met = f"{nombre_dia} {fecha_met.strftime('%d/%m/%Y')}"
+
+            # Guardar en memoria JSON
+            guardar_memoria("met_estado", estado_met)
+            guardar_memoria("met_estacion", estacion_met)
+            guardar_memoria("met_hora", hora_met)
+            guardar_memoria("met_capacidad", capacidad_op)
+            guardar_memoria("met_condiciones", condiciones_met)
+            guardar_memoria("met_acciones", acciones_met)
 
             st.session_state.reporte_met_generado = f"""*REPORTE METEOROLOGICO*
 
@@ -1845,6 +2251,7 @@ elif opcion_modulo == "REPORTES MIXTOS":
         if st.session_state.reporte_met_generado:
             st.subheader("📋 Reporte Meteorológico Formateado (Listo para WhatsApp)")
             st.code(st.session_state.reporte_met_generado, language=None)
+
     # ---------------------------------------------------------
     # SUBMÓDULO: REPORTE DE UNIDADES
     # ---------------------------------------------------------
@@ -1857,7 +2264,6 @@ elif opcion_modulo == "REPORTES MIXTOS":
             fecha_unidad = st.date_input("Fecha", datetime.now(), key="fecha_unidad")
 
         with col_ru2:
-            # Selector de tipo de unidad
             tipo_unidad = st.selectbox(
                 "Tipo de Unidad",
                 [
@@ -1866,11 +2272,12 @@ elif opcion_modulo == "REPORTES MIXTOS":
                     "UNIDAD 4.4 (Transporte de Personal)",
                     "UNIDAD 4.2 (Cisterna)"
                 ],
+                index=["UNIDAD PARTICULAR", "UNIDAD TIPO MOTO", "UNIDAD 4.4 (Transporte de Personal)", "UNIDAD 4.2 (Cisterna)"].index(cargar_memoria("unidad_tipo", "UNIDAD TIPO MOTO")),
                 key="tipo_unidad"
             )
             
             if tipo_unidad == "UNIDAD TIPO MOTO":
-                num_unidad = st.number_input("Número de Unidad", min_value=1, max_value=99, value=41)
+                num_unidad = st.number_input("Número de Unidad", min_value=1, max_value=99, value=int(cargar_memoria("unidad_num", 41)))
                 unidad_completa = f"{tipo_unidad} {num_unidad:02d}"
             else:
                 unidad_completa = tipo_unidad
@@ -1880,76 +2287,68 @@ elif opcion_modulo == "REPORTES MIXTOS":
         with col_ru3:
             comandante_comision = st.text_input(
                 "Comandante de Comisión",
-                "",
-                placeholder="Ej: C/1(B) Brito Pedro",
-                key="comandante_comision"
+                cargar_memoria("unidad_comandante", ""),
+                placeholder="Ej: C/1(B) Brito Pedro"
             )
         with col_ru4:
             operador_conductor = st.text_input(
                 "Operador/Conductor",
-                "",
-                placeholder="Ej: S/1 (B) Díaz Jorge",
-                key="operador_conductor"
+                cargar_memoria("unidad_operador", ""),
+                placeholder="Ej: S/1 (B) Díaz Jorge"
             )
 
         st.subheader("📍 Ubicación")
-        col_ru5, col_ru6 = st.columns(2)
-        with col_ru5:
-            municipios_carabobo_unidad = {
-                "Bejuma": ["Bejuma", "Chirgua", "Simón Bolívar"],
-                "Carlos Arvelo": ["Güigüe", "Tacarigua", "Belén"],
-                "Diego Ibarra": ["Mariara", "Aguas Calientes"],
-                "Guacara": ["Guacara", "Ciudad Alianza", "Yagua"],
-                "Juan José Mora": ["Morón", "Urama"],
-                "Libertador": ["Tocuyito", "Independencia"],
-                "Los Guayos": ["Los Guayos"],
-                "Miranda": ["Miranda"],
-                "Montalbán": ["Montalbán"],
-                "Naguanagua": ["Naguanagua"],
-                "Puerto Cabello": ["Puerto Cabello", "Democracia", "Fraternidad", "Goaigoaza", "Juan José Flores", "Patanemo", "Borburata"],
-                "San Diego": ["San Diego"],
-                "San Joaquín": ["San Joaquín"]
-            }
-            municipio_unidad = st.selectbox(
-                "Municipio",
-                list(municipios_carabobo_unidad.keys()),
-                index=list(municipios_carabobo_unidad.keys()).index("San Diego"),
-                key="municipio_unidad"
-            )
-        with col_ru6:
-            parroquia_unidad = st.selectbox(
-                "Parroquia",
-                municipios_carabobo_unidad[municipio_unidad],
-                key="parroquia_unidad"
-            )
-
-        estado_unidad = st.text_input("Estado", "Carabobo", key="estado_unidad")
-        sector_unidad = st.text_input(
-            "Sector / Lugar de referencia",
-            "",
-            placeholder="Ej: Terminal de pasajeros Big Low Center, zona industrial Castillo",
-            key="sector_unidad"
+        ubicaciones_unidad = cargar_ubicaciones()
+        estados_unidad = list(ubicaciones_unidad.keys())
+        
+        estado_unidad = st.selectbox(
+            "Estado",
+            estados_unidad,
+            index=estados_unidad.index(cargar_memoria("unidad_estado", "Carabobo")),
+            key="estado_unidad"
         )
+        
+        if estado_unidad == "Carabobo":
+            municipios_carabobo_unidad = ubicaciones_unidad["Carabobo"]["municipios"]
+            col_ru5, col_ru6 = st.columns(2)
+            with col_ru5:
+                municipio_unidad = st.selectbox(
+                    "Municipio",
+                    list(municipios_carabobo_unidad.keys()),
+                    index=list(municipios_carabobo_unidad.keys()).index(cargar_memoria("unidad_municipio", "San Diego")),
+                    key="municipio_unidad"
+                )
+            with col_ru6:
+                parroquia_unidad = st.selectbox(
+                    "Parroquia",
+                    municipios_carabobo_unidad[municipio_unidad]["parroquias"],
+                    index=municipios_carabobo_unidad[municipio_unidad]["parroquias"].index(cargar_memoria("unidad_parroquia", municipios_carabobo_unidad[municipio_unidad]["parroquias"][0])),
+                    key="parroquia_unidad"
+                )
+            sector_unidad = st.text_input("Sector", cargar_memoria("unidad_sector", ""), key="sector_unidad")
+        else:
+            municipio_unidad = st.text_input("Municipio", cargar_memoria("unidad_municipio", ""), key="municipio_unidad")
+            parroquia_unidad = st.text_input("Parroquia", cargar_memoria("unidad_parroquia", ""), key="parroquia_unidad")
+            sector_unidad = st.text_input("Sector", cargar_memoria("unidad_sector", ""), key="sector_unidad")
 
-        ubicacion_unidad = f"Parroquia {parroquia_unidad}, Municipio {municipio_unidad}, {sector_unidad}, Estado {estado_unidad}"
+        ubicacion_unidad = f"parroquia {parroquia_unidad}, municipio {municipio_unidad}, {sector_unidad}, estado {estado_unidad}"
 
         st.subheader("👥 Efectivos y Motivo")
         cantidad_efectivos_unidad = st.number_input(
             "Cantidad de Efectivos",
             min_value=1,
-            value=4,
-            step=1,
-            key="cantidad_efectivos_unidad"
+            value=int(cargar_memoria("unidad_efectivos", 4)),
+            step=1
         )
 
         motivo_unidad = st.text_area(
             "Motivo:",
+            value=cargar_memoria("unidad_motivo", ""),
             placeholder="Ejemplo: Reporta C/1 (B) Brito Pedro que se encuentran en el lugar antes mencionado...",
             height=120,
             key="motivo_unidad"
         )
 
-        # === IA === Botón para mejorar motivo
         col_mot_btn1, col_mot_btn2 = st.columns([3, 1])
         with col_mot_btn2:
             if st.button("✨ IA Motivo", key="btn_ia_motivo_unidad"):
@@ -1961,19 +2360,24 @@ elif opcion_modulo == "REPORTES MIXTOS":
                     st.warning("Escribe algo primero")
 
         if "motivo_mejorado_unidad" in st.session_state:
-            motivo_unidad = st.text_area(
-                "Motivo mejorado (copia este texto):",
+            st.text_area(
+                "Motivo mejorado:",
                 value=st.session_state["motivo_mejorado_unidad"],
                 key="motivo_mejorado_display_unidad",
-                height=120
+                height=120,
+                disabled=True
             )
-
-        analista_unidad = st.text_input(
-            "Analista que Registra",
-            "",
-            placeholder="Indique el rango y nombre",
-            key="analista_unidad"
-        )
+            
+            col_mot_conf1, col_mot_conf2 = st.columns(2)
+            with col_mot_conf1:
+                if st.button("✅ Usar mejorado", key="btn_usar_motivo_unidad"):
+                    guardar_memoria("unidad_motivo", st.session_state["motivo_mejorado_unidad"])
+                    del st.session_state["motivo_mejorado_unidad"]
+                    st.rerun()
+            with col_mot_conf2:
+                if st.button("❌ Mantener original", key="btn_mantener_motivo_unidad"):
+                    del st.session_state["motivo_mejorado_unidad"]
+                    st.rerun()
 
         if 'reporte_unidad_generado' not in st.session_state:
             st.session_state.reporte_unidad_generado = ""
@@ -1984,6 +2388,18 @@ elif opcion_modulo == "REPORTES MIXTOS":
             if not motivo_unidad.strip():
                 st.warning("⚠️ Por favor complete el motivo.")
             else:
+                # Guardar en memoria JSON
+                guardar_memoria("unidad_tipo", tipo_unidad)
+                guardar_memoria("unidad_num", num_unidad if tipo_unidad == "UNIDAD TIPO MOTO" else 41)
+                guardar_memoria("unidad_comandante", comandante_comision)
+                guardar_memoria("unidad_operador", operador_conductor)
+                guardar_memoria("unidad_estado", estado_unidad)
+                guardar_memoria("unidad_municipio", municipio_unidad)
+                guardar_memoria("unidad_parroquia", parroquia_unidad)
+                guardar_memoria("unidad_sector", sector_unidad)
+                guardar_memoria("unidad_efectivos", cantidad_efectivos_unidad)
+                guardar_memoria("unidad_motivo", motivo_unidad)
+                
                 dias_semana_unidad = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dia_str_unidad = dias_semana_unidad[fecha_unidad.weekday()]
                 fecha_str_unidad = f"{dia_str_unidad} {fecha_unidad.strftime('%d/%m/%Y')}"
@@ -2013,10 +2429,9 @@ elif opcion_modulo == "REPORTES MIXTOS":
 *CANTIDAD DE EFECTIVOS:* {cantidad_efectivos_unidad:02d}
 
 *MOTIVO:* 
-{motivo_unidad}
-
-*ANALISTA:* {analista_unidad}"""
+{motivo_unidad}"""
 
         if st.session_state.reporte_unidad_generado:
             st.subheader("📋 Reporte de Unidad Formateado (Listo para copiar a WhatsApp)")
             st.code(st.session_state.reporte_unidad_generado, language=None)
+
