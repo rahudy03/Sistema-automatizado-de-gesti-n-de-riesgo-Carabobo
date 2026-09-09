@@ -16,7 +16,7 @@ OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 # =========================================================
 
 def mejorar_redaccion_ia(texto, tipo_texto="general"):
-    """Mejora la redacción usando OpenRouter con modelos gratuitos."""
+    """Mejora la redacción usando OpenRouter con prompts optimizados por tipo."""
     if not texto.strip():
         return "Sin información adicional registrada."
 
@@ -25,100 +25,29 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         api_key=OPENROUTER_API_KEY,
     )
 
-    instrucciones_base = """Eres un asistente de redacción para reportes oficiales del Cuerpo de Bomberos Forestales INPARQUES.
+    base = "Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
 
-INSTRUCCIONES GENERALES:
-- Corrige todos los errores ortográficos y gramaticales.
-- Si el texto está escrito de forma informal, desordenada o "a los golpes", redáctalo de manera técnica y profesional.
-- Mantén el significado original, NO agregues información que no esté en el texto original.
-- El resultado debe estar en español.
-- Usa terminología apropiada para reportes de emergencias y bomberiles.
-- NO uses emojis en el texto mejorado.
-- Respeta los rangos militares tal como aparecen (Ej: S/2 (B), C/1 (B), My (B), etc.)"""
-
-    instrucciones_por_tipo = {
-        "reseña": """
-INSTRUCCIONES ESPECÍFICAS PARA RESEÑA:
-- Redacta en pasado y en tercera persona.
-- Estructura en un solo párrafo fluido.
-- Incluye quién ordenó, qué se hizo y por qué.
-- Ejemplo de tono: "Por instrucciones del Jefe de Estación, se procedió a..." """,
-
-        "reseña de incendio": """
-INSTRUCCIONES ESPECÍFICAS PARA RESEÑA DE INCENDIO:
-- Redacta en pasado y en tercera persona.
-- Describe cómo se detectó el incendio, quién lo reportó y qué se visualizó.
-- Usa términos como "columna de humo", "foco de incendio", "propagación".
-- Ejemplo de tono: "Durante recorrido por el sector se visualiza una columna de humo..." """,
-
-        "acciones realizadas": """
-INSTRUCCIONES ESPECÍFICAS PARA ACCIONES REALIZADAS:
-- Mantén el formato de bitácora si tiene horas (Ej: "07:29 Hrs Se destaca comisión...").
-- Usa verbos en pasado (destacó, reportó, procedió, controló).
-- Cada acción debe ir en línea separada si hay múltiples eventos.
-- NO combines todas las acciones en un solo párrafo.""",
-
-        "bitácora de eventos": """
-INSTRUCCIONES ESPECÍFICAS PARA BITÁCORA DE EVENTOS:
-- Mantén el formato cronológico con horas si existen.
-- Cada evento debe ir en línea separada.
-- Usa verbos en pasado (destacó, reportó, procedió, controló).
-- No elimines horas ni detalles técnicos.
-- Formato: "HH:MM Hrs - Descripción de la acción" """,
-
-        "observación": """
-INSTRUCCIONES ESPECÍFICAS PARA OBSERVACIONES:
-- Sé breve y directo, máximo 2-3 líneas.
-- Redacta en tono formal y objetivo.
-- No uses juicios de valor ni opiniones personales.
-- Solo hechos concretos.""",
-
-        "actividad": """
-INSTRUCCIONES ESPECÍFICAS PARA ACTIVIDAD:
-- Redacta en pasado y en tercera persona.
-- Describe la actividad realizada, quién la impartió y a quién.
-- Incluye el tema tratado si se menciona.
-- Ejemplo: "El día de hoy se realizó sesión educativa sobre..." """,
-
-        "nota informativa": """
-INSTRUCCIONES ESPECÍFICAS PARA NOTA INFORMATIVA:
-- Redacta en tono formal e institucional.
-- Estructura en párrafos claros y concisos.
-- Usa frases como "Se informa que...", "Se hace de conocimiento...".
-- No uses lenguaje coloquial.""",
-
-        "condiciones meteorológicas": """
-INSTRUCCIONES ESPECÍFICAS PARA CONDICIONES METEOROLÓGICAS:
-- Describe el clima de forma técnica y precisa.
-- Usa términos como "precipitaciones", "nubosidad", "vientos".
-- Incluye ubicación geográfica si se menciona.
-- Formato: "Cielo despejado en el sector..., parroquia..., municipio..., estado..." """,
-
-        "motivo de unidad": """
-INSTRUCCIONES ESPECÍFICAS PARA MOTIVO DE UNIDAD:
-- Redacta en pasado y en tercera persona.
-- Incluye quién reporta, qué reporta y desde dónde.
-- Usa formato: "Reporta [rango y nombre] que se encuentran en el lugar antes mencionado..."
-- Sé breve y directo.""",
-
-        "general": """
-INSTRUCCIONES ESPECÍFICAS:
-- Redacta de manera profesional y clara.
-- Corrige errores manteniendo el significado original."""
+    instrucciones = {
+        "reseña": "Reseña: pasado, tercera persona, un párrafo fluido. Incluye quién llamó, por instrucción de quién y a quién se mandó.",
+        "reseña de incendio": "Reseña: pasado, tercera persona, un párrafo fluido. Describe cómo se detectó el incendio.",
+        "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora.',
+        "observación": "Observación: breve, directo, tono formal, solo hechos concretos.",
+        "actividad": "Actividad: pasado, tercera persona. Describe la actividad realizada.",
+        "nota informativa": "Nota informativa: tono institucional formal.",
+        "condiciones meteorológicas": "Condiciones: describe clima de forma técnica.",
+        "motivo de unidad": "Motivo: incluye quién reporta y desde dónde.",
+        "general": ""
     }
 
-    instrucciones_especificas = instrucciones_por_tipo.get(tipo_texto, instrucciones_por_tipo["general"])
+    instruccion = instrucciones.get(tipo_texto, "")
 
-    prompt = f"""{instrucciones_base}
+    prompt = f"""{base} {instruccion}
 
-{instrucciones_especificas}
-
-TIPO DE TEXTO: {tipo_texto}
-
-TEXTO ORIGINAL:
+TEXTO:
 {texto}
 
-TEXTO MEJORADO:"""
+MEJORADO:"""
+
     modelos = [
         "inclusionai/ling-3.0-flash-sante:free"
     ]
