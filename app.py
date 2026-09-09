@@ -991,6 +991,7 @@ elif opcion_modulo == "PARTE VESPERTINO":
         st.subheader("📋 Parte Vespertino Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.parte_vespertino_generado, language=None)
 
+
 # =========================================================
 # MÓDULO 3: REPORTES DE SERVICIOS 
 # =========================================================
@@ -1059,12 +1060,12 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
             )
             
             with st.expander("➕ / 🗑️ Gestionar Sectores y Sub-sectores"):
-                sectores_de_parroquia = municipios_carabobo[srv_municipio]["sectores"].get(srv_parroquia, {})
+                sectores_de_parroquia = municipios_carabobo[srv_municipio]["sectores"].get(srv_parroquia, [])
                 
                 if sectores_de_parroquia:
                     st.write("**Sectores existentes:**")
-                    for sector_nombre, sub_sectores_lista in sectores_de_parroquia.items():
-                        st.write(f"- {sector_nombre} ({len(sub_sectores_lista)} sub-sectores)")
+                    for sector_nombre in sectores_de_parroquia:
+                        st.write(f"- {sector_nombre}")
                 
                 st.markdown("---")
                 st.write("**Agregar Sector:**")
@@ -1072,9 +1073,9 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 if st.button("➕ Agregar Sector", key="btn_agregar_sector_srv"):
                     if nuevo_sector.strip():
                         if srv_parroquia not in municipios_carabobo[srv_municipio]["sectores"]:
-                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia] = {}
+                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia] = []
                         if nuevo_sector.strip() not in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]:
-                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][nuevo_sector.strip()] = []
+                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia].append(nuevo_sector.strip())
                             guardar_ubicaciones(ubicaciones)
                             st.success(f"✅ Sector '{nuevo_sector}' agregado a {srv_parroquia}")
                             st.rerun()
@@ -1084,10 +1085,10 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                         st.warning("Escribe el nombre del sector.")
                 
                 if sectores_de_parroquia:
-                    sector_a_eliminar = st.selectbox("Seleccione sector a eliminar:", list(sectores_de_parroquia.keys()), key="sec_eliminar_srv")
+                    sector_a_eliminar = st.selectbox("Seleccione sector a eliminar:", sectores_de_parroquia, key="sec_eliminar_srv")
                     if st.button("🗑️ Eliminar Sector", key="btn_eliminar_sector_srv"):
                         if sector_a_eliminar in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]:
-                            del municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_a_eliminar]
+                            municipios_carabobo[srv_municipio]["sectores"][srv_parroquia].remove(sector_a_eliminar)
                             guardar_ubicaciones(ubicaciones)
                             st.success(f"✅ Sector '{sector_a_eliminar}' eliminado")
                             st.rerun()
@@ -1095,12 +1096,12 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 st.markdown("---")
                 st.write("**Agregar Sub-sector a Sector existente:**")
                 if sectores_de_parroquia:
-                    sector_para_sub = st.selectbox("Seleccione sector:", list(sectores_de_parroquia.keys()), key="sec_para_sub_srv")
+                    sector_para_sub = st.selectbox("Seleccione sector:", sectores_de_parroquia, key="sec_para_sub_srv")
                     nuevo_sub_sector = st.text_input("Nombre del nuevo sub-sector:")
                     if st.button("➕ Agregar Sub-sector", key="btn_agregar_sub_srv"):
                         if nuevo_sub_sector.strip():
-                            if nuevo_sub_sector.strip() not in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub]:
-                                municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub].append(nuevo_sub_sector.strip())
+                            if nuevo_sub_sector.strip() not in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]:
+                                municipios_carabobo[srv_municipio]["sectores"][srv_parroquia].append(nuevo_sub_sector.strip())
                                 guardar_ubicaciones(ubicaciones)
                                 st.success(f"✅ Sub-sector '{nuevo_sub_sector}' agregado a {sector_para_sub}")
                                 st.rerun()
@@ -1109,28 +1110,28 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                         else:
                             st.warning("Escribe el nombre del sub-sector.")
                     
-                    sub_sectores_de_sector = municipios_carabobo[srv_municipio]["sectores"][srv_parroquia].get(sector_para_sub, [])
+                    sub_sectores_de_sector = municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]
                     if sub_sectores_de_sector:
                         sub_a_eliminar = st.selectbox("Seleccione sub-sector a eliminar:", sub_sectores_de_sector, key="sub_eliminar_srv")
                         if st.button("🗑️ Eliminar Sub-sector", key="btn_eliminar_sub_srv"):
-                            if sub_a_eliminar in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub]:
-                                municipios_carabobo[srv_municipio]["sectores"][srv_parroquia][sector_para_sub].remove(sub_a_eliminar)
+                            if sub_a_eliminar in municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]:
+                                municipios_carabobo[srv_municipio]["sectores"][srv_parroquia].remove(sub_a_eliminar)
                                 guardar_ubicaciones(ubicaciones)
                                 st.success(f"✅ Sub-sector '{sub_a_eliminar}' eliminado")
                                 st.rerun()
                 else:
                     st.info("No hay sectores. Agrega un sector primero.")
             
-            sectores_de_parroquia = municipios_carabobo[srv_municipio]["sectores"].get(srv_parroquia, {})
+            sectores_de_parroquia = municipios_carabobo[srv_municipio]["sectores"].get(srv_parroquia, [])
             
             if sectores_de_parroquia:
                 srv_sector = st.selectbox(
                     "Sector",
-                    list(sectores_de_parroquia.keys()),
-                    index=list(sectores_de_parroquia.keys()).index(cargar_memoria("srv_sector", list(sectores_de_parroquia.keys())[0]))
+                    sectores_de_parroquia,
+                    index=sectores_de_parroquia.index(cargar_memoria("srv_sector", sectores_de_parroquia[0]))
                 )
                 
-                sub_sectores_del_sector = sectores_de_parroquia[srv_sector]
+                sub_sectores_del_sector = municipios_carabobo[srv_municipio]["sectores"][srv_parroquia]
                 if sub_sectores_del_sector:
                     srv_sub_sector = st.selectbox(
                         "Sub-sector",
@@ -1432,7 +1433,7 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
     if st.session_state.reporte_generado:
         st.subheader("📋 Reporte Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.reporte_generado, language=None)
-
+        
 # =========================================================
 # MÓDULO 4: REPORTES DE INCENDIOS
 # =========================================================
@@ -2434,4 +2435,3 @@ elif opcion_modulo == "REPORTES MIXTOS":
         if st.session_state.reporte_unidad_generado:
             st.subheader("📋 Reporte de Unidad Formateado (Listo para copiar a WhatsApp)")
             st.code(st.session_state.reporte_unidad_generado, language=None)
-
