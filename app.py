@@ -43,6 +43,8 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
 
     prompt = f"""{base} {instruccion}
 
+    Devuelve SOLO el texto mejorado, sin frases adicionales.
+
 TEXTO:
 {texto}
 
