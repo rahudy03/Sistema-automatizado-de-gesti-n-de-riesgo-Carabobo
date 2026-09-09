@@ -9,7 +9,7 @@ from openai import OpenAI
 # CONFIGURACIÓN DE API KEYS DESDE secrets.toml
 # =========================================================
 WINDY_API_KEY = st.secrets["WINDY_API_KEY"]
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 
 # =========================================================
 # FUNCIÓN DE IA PARA MEJORAR REDACCIÓN
