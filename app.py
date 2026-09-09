@@ -1977,7 +1977,7 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
 
 *FECHA:* {fecha_inc.strftime('%d/%m/%Y')}
 
-*HORA:* {hora_inc.strftime('%H:%M')} HLV 
+*HORA:* {hora_inc.strftime('%H:%M')} Hrs 
 
 *COMANDANTE EN ESCENA:* {comandante_escena} 
 
@@ -2029,7 +2029,7 @@ BFI: {efectivos_inc:02d}
 ✅ Humedad relativa: {humedad_val}
 ✅ Presión atmosférica: {presion_val}
 
-*HORA DE ENVÍO:* {hora_envio_inc.strftime('%H:%M')} HLV
+*HORA DE ENVÍO:* {hora_envio_inc.strftime('%H:%M')} Hrs
 
 *ESTATUS:*
 {estatus_inc}
