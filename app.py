@@ -28,22 +28,22 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
     base = "Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
 
     instrucciones = {
-        "reseña": "Reseña: pasado, tercera persona, un párrafo fluido. Incluye quién llamó, por instrucción de quién y a quién se mandó.",
-        "reseña de incendio": "Reseña: pasado, tercera persona, un párrafo fluido. Describe cómo se detectó el incendio.",
-        "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora.',
-        "observación": "Observación: breve, directo, tono formal, solo hechos concretos.",
-        "actividad": "Actividad: pasado, tercera persona. Describe la actividad realizada.",
-        "nota informativa": "Nota informativa: tono institucional formal.",
-        "condiciones meteorológicas": "Condiciones: describe clima de forma técnica.",
-        "motivo de unidad": "Motivo: incluye quién reporta y desde dónde.",
-        "general": ""
+                "reseña": 'Reseña: pasado, tercera persona, un párrafo fluido. Incluye quién llamó, por instrucción de quién y a quién se mandó.',
+        "reseña de incendio": 'Reseña: pasado, tercera persona, un párrafo fluido. Describe cómo se detectó el incendio.',
+        "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora y donde no se especifica quién reporta. Si ya se menciona otro medio (radio, teléfono), no agregar WhatsApp.',
+        "observación": 'Observación: breve, directo, tono formal, solo hechos concretos.',
+        "actividad": 'Actividad: pasado, tercera persona. Describe la actividad realizada.',
+        "nota informativa": 'Nota informativa: tono institucional formal.',
+        "condiciones meteorológicas": 'Condiciones: describe clima de forma técnica.',
+        "motivo de unidad": 'Motivo: incluye quién reporta y desde dónde.',
+        "general": 'Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc.'
     }
 
     instruccion = instrucciones.get(tipo_texto, "")
 
     prompt = f"""{base} {instruccion}
 
-    Devuelve SOLO el texto mejorado, sin frases adicionales.
+Devuelve SOLO el texto mejorado, sin frases adicionales.
 
 TEXTO:
 {texto}
@@ -1240,6 +1240,10 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         col_acc_conf1, col_acc_conf2 = st.columns(2)
         with col_acc_conf1:
             if st.button("✅ Usar mejorado", key="btn_usar_acciones_srv"):
+                # Reemplazar "Jefe de Comisión" por el nombre real
+                if jefe_comision:
+                    st.session_state["acciones_mejoradas_srv"] = st.session_state["acciones_mejoradas_srv"].replace("Jefe de Comisión", jefe_comision)
+                
                 guardar_memoria("srv_acciones", st.session_state["acciones_mejoradas_srv"])
                 del st.session_state["acciones_mejoradas_srv"]
                 st.rerun()
@@ -1780,6 +1784,10 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         col_acc_conf1_i, col_acc_conf2_i = st.columns(2)
         with col_acc_conf1_i:
             if st.button("✅ Usar mejorado", key="btn_usar_acciones_inc"):
+                # Reemplazar "Jefe de Comisión" por el nombre real
+                if comandante_escena:
+                    st.session_state["acciones_mejoradas_inc"] = st.session_state["acciones_mejoradas_inc"].replace("Jefe de Comisión", comandante_escena)
+                
                 guardar_memoria("inc_acciones", st.session_state["acciones_mejoradas_inc"])
                 del st.session_state["acciones_mejoradas_inc"]
                 st.rerun()
