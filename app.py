@@ -548,12 +548,15 @@ if opcion_modulo == "PARTE MATUTINO":
         actividades_mat = st.number_input("Actividades", min_value=0, value=int(cargar_memoria("mat_actividades", 0)))
 
     st.subheader("📝 Detalle de Actividades")
+    
+    if "mat_texto_actividad" not in st.session_state:
+        st.session_state["mat_texto_actividad"] = cargar_memoria("mat_texto_actividad", "")
+
     texto_actividad_mat = st.text_area(
         "Detalle de la actividad realizada:",
-        value=cargar_memoria("mat_texto_actividad", ""),
         placeholder="Ejemplo:\nEl día de hoy en horas matutinas se da una sesión educativa...",
         height=120,
-        key="act_txt_mat"
+        key="mat_texto_actividad"
     )
     
     col_act_btn1, col_act_btn2 = st.columns([3, 1])
@@ -562,14 +565,15 @@ if opcion_modulo == "PARTE MATUTINO":
             if texto_actividad_mat.strip():
                 with st.spinner("🤖 Mejorando..."):
                     act_mejorada = mejorar_redaccion_ia(texto_actividad_mat, "actividad")
-                    st.session_state["act_mejorada_mat"] = act_mejorada
+                    st.session_state["act_mejorada_mostrar_mat"] = act_mejorada
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "act_mejorada_mat" in st.session_state:
+    if "act_mejorada_mostrar_mat" in st.session_state:
         st.text_area(
             "Actividad mejorada:",
-            value=st.session_state["act_mejorada_mat"],
+            value=st.session_state["act_mejorada_mostrar_mat"],
             key="act_mejorada_display_mat",
             height=120,
             disabled=True
@@ -578,24 +582,27 @@ if opcion_modulo == "PARTE MATUTINO":
         col_conf1_act, col_conf2_act = st.columns(2)
         with col_conf1_act:
             if st.button("✅ Usar mejorado", key="btn_usar_act_mat"):
-                guardar_memoria("mat_texto_actividad", st.session_state["act_mejorada_mat"])
-                del st.session_state["act_mejorada_mat"]
+                guardar_memoria("mat_texto_actividad", st.session_state["act_mejorada_mostrar_mat"])
+                del st.session_state["mat_texto_actividad"]
+                del st.session_state["act_mejorada_mostrar_mat"]
                 st.rerun()
         with col_conf2_act:
             if st.button("❌ Mantener original", key="btn_mantener_act_mat"):
-                del st.session_state["act_mejorada_mat"]
+                del st.session_state["act_mejorada_mostrar_mat"]
                 st.rerun()
 
     st.subheader("📝 Observaciones")
     
     cant_obs_mat = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("mat_cant_obs", 0)), step=1)
     
+    if "mat_texto_obs" not in st.session_state:
+        st.session_state["mat_texto_obs"] = cargar_memoria("mat_texto_obs", "")
+
     texto_observaciones_mat = st.text_area(
         "Redacte las observaciones (una por línea):",
-        value=cargar_memoria("mat_texto_obs", ""),
         placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
         height=150,
-        key="obs_txt_mat"
+        key="mat_texto_obs"
     )
     
     col_obs_btn1, col_obs_btn2 = st.columns([3, 1])
@@ -604,14 +611,15 @@ if opcion_modulo == "PARTE MATUTINO":
             if texto_observaciones_mat.strip():
                 with st.spinner("🤖 Mejorando..."):
                     obs_mejorada = mejorar_redaccion_ia(texto_observaciones_mat, "observación")
-                    st.session_state["obs_mejorada_mat"] = obs_mejorada
+                    st.session_state["obs_mejorada_mostrar_mat"] = obs_mejorada
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "obs_mejorada_mat" in st.session_state:
+    if "obs_mejorada_mostrar_mat" in st.session_state:
         st.text_area(
             "Observaciones mejoradas:",
-            value=st.session_state["obs_mejorada_mat"],
+            value=st.session_state["obs_mejorada_mostrar_mat"],
             key="obs_mejorada_display_mat",
             height=150,
             disabled=True
@@ -620,12 +628,13 @@ if opcion_modulo == "PARTE MATUTINO":
         col_confirm1, col_confirm2 = st.columns(2)
         with col_confirm1:
             if st.button("✅ Usar mejorado", key="btn_usar_obs_mat"):
-                guardar_memoria("mat_texto_obs", st.session_state["obs_mejorada_mat"])
-                del st.session_state["obs_mejorada_mat"]
+                guardar_memoria("mat_texto_obs", st.session_state["obs_mejorada_mostrar_mat"])
+                del st.session_state["mat_texto_obs"]
+                del st.session_state["obs_mejorada_mostrar_mat"]
                 st.rerun()
         with col_confirm2:
             if st.button("❌ Mantener original", key="btn_mantener_obs_mat"):
-                del st.session_state["obs_mejorada_mat"]
+                del st.session_state["obs_mejorada_mostrar_mat"]
                 st.rerun()
 
     unidades_op = st.text_area(
@@ -652,7 +661,6 @@ if opcion_modulo == "PARTE MATUTINO":
         nombre_dia = dias[fecha_mat.weekday()]
         fecha_str = f"{nombre_dia} {fecha_mat.strftime('%d/%m/%Y')}"
 
-        # Guardar en memoria JSON
         guardar_memoria("mat_coord_estadal", coord_estadal)
         guardar_memoria("mat_jefe_estacion", jefe_estacion)
         guardar_memoria("mat_jefe_seccion", jefe_seccion)
@@ -770,12 +778,15 @@ elif opcion_modulo == "PARTE VESPERTINO":
         actividades_vesp = st.number_input("Actividades", min_value=0, value=int(cargar_memoria("vesp_actividades", 1)))
 
     st.subheader("📝 Actividad Realizada")
+    
+    if "vesp_texto_actividad" not in st.session_state:
+        st.session_state["vesp_texto_actividad"] = cargar_memoria("vesp_texto_actividad", "")
+
     texto_actividad = st.text_area(
         "Detalle de la actividad realizada:",
-        value=cargar_memoria("vesp_texto_actividad", ""),
         placeholder="Ejemplo:\nEl día de hoy en horas matutinas se da una sesión educativa al personal pasante...",
         height=120,
-        key="act_txt_vesp"
+        key="vesp_texto_actividad"
     )
     
     col_act_btn1_v, col_act_btn2_v = st.columns([3, 1])
@@ -784,14 +795,15 @@ elif opcion_modulo == "PARTE VESPERTINO":
             if texto_actividad.strip():
                 with st.spinner("🤖 Mejorando..."):
                     act_mejorada_v = mejorar_redaccion_ia(texto_actividad, "actividad")
-                    st.session_state["act_mejorada_vesp"] = act_mejorada_v
+                    st.session_state["act_mejorada_mostrar_vesp"] = act_mejorada_v
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "act_mejorada_vesp" in st.session_state:
+    if "act_mejorada_mostrar_vesp" in st.session_state:
         st.text_area(
             "Actividad mejorada:",
-            value=st.session_state["act_mejorada_vesp"],
+            value=st.session_state["act_mejorada_mostrar_vesp"],
             key="act_mejorada_display_vesp",
             height=120,
             disabled=True
@@ -800,25 +812,27 @@ elif opcion_modulo == "PARTE VESPERTINO":
         col_conf1_act_v, col_conf2_act_v = st.columns(2)
         with col_conf1_act_v:
             if st.button("✅ Usar mejorado", key="btn_usar_act_vesp"):
-                guardar_memoria("vesp_texto_actividad", st.session_state["act_mejorada_vesp"])
-                del st.session_state["act_mejorada_vesp"]
+                guardar_memoria("vesp_texto_actividad", st.session_state["act_mejorada_mostrar_vesp"])
+                del st.session_state["vesp_texto_actividad"]
+                del st.session_state["act_mejorada_mostrar_vesp"]
                 st.rerun()
         with col_conf2_act_v:
             if st.button("❌ Mantener original", key="btn_mantener_act_vesp"):
-                del st.session_state["act_mejorada_vesp"]
+                del st.session_state["act_mejorada_mostrar_vesp"]
                 st.rerun()
-                
-                
+
     st.subheader("📋 Observaciones")
     
     cant_obs_vesp = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("vesp_cant_obs", 0)), step=1)
     
+    if "vesp_texto_obs" not in st.session_state:
+        st.session_state["vesp_texto_obs"] = cargar_memoria("vesp_texto_obs", "")
+
     texto_observaciones_vesp = st.text_area(
         "Redacte las observaciones (una por línea):",
-        value=cargar_memoria("vesp_texto_obs", ""),
         placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
         height=150,
-        key="obs_txt_vesp"
+        key="vesp_texto_obs"
     )
     
     col_obs_btn1_v, col_obs_btn2_v = st.columns([3, 1])
@@ -827,28 +841,30 @@ elif opcion_modulo == "PARTE VESPERTINO":
             if texto_observaciones_vesp.strip():
                 with st.spinner("🤖 Mejorando..."):
                     obs_mejorada_v = mejorar_redaccion_ia(texto_observaciones_vesp, "observación")
-                    st.session_state["obs_mejorada_vesp"] = obs_mejorada_v
+                    st.session_state["obs_mejorada_mostrar_vesp"] = obs_mejorada_v
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "obs_mejorada_vesp" in st.session_state:
+    if "obs_mejorada_mostrar_vesp" in st.session_state:
         st.text_area(
             "Observaciones mejoradas:",
-            value=st.session_state["obs_mejorada_vesp"],
+            value=st.session_state["obs_mejorada_mostrar_vesp"],
             key="obs_mejorada_display_vesp",
             height=150,
             disabled=True
         )
         
-        col_conf1_v, col_conf2_v = st.columns(2)
-        with col_conf1_v:
+        col_confirm1_v, col_confirm2_v = st.columns(2)
+        with col_confirm1_v:
             if st.button("✅ Usar mejorado", key="btn_usar_obs_vesp"):
-                guardar_memoria("vesp_texto_obs", st.session_state["obs_mejorada_vesp"])
-                del st.session_state["obs_mejorada_vesp"]
+                guardar_memoria("vesp_texto_obs", st.session_state["obs_mejorada_mostrar_vesp"])
+                del st.session_state["vesp_texto_obs"]
+                del st.session_state["obs_mejorada_mostrar_vesp"]
                 st.rerun()
-        with col_conf2_v:
+        with col_confirm2_v:
             if st.button("❌ Mantener original", key="btn_mantener_obs_vesp"):
-                del st.session_state["obs_mejorada_vesp"]
+                del st.session_state["obs_mejorada_mostrar_vesp"]
                 st.rerun()
 
     st.subheader("🌤️ Clima y Analista")
@@ -868,7 +884,6 @@ elif opcion_modulo == "PARTE VESPERTINO":
         nombre_dia = dias[fecha_vesp.weekday()]
         fecha_str = f"{nombre_dia} {fecha_vesp.strftime('%d/%m/%Y')}"
 
-        # Guardar en memoria JSON
         guardar_memoria("vesp_estacion", estacion_vesp)
         guardar_memoria("vesp_serv_realizados", serv_realizados)
         guardar_memoria("vesp_actividades", actividades_vesp)
@@ -921,8 +936,8 @@ elif opcion_modulo == "PARTE VESPERTINO":
     if st.session_state.parte_vespertino_generado:
         st.subheader("📋 Parte Vespertino Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.parte_vespertino_generado, language=None)
-
-
+        
+        
 # =========================================================
 # MÓDULO 3: REPORTES DE SERVICIOS 
 # =========================================================
@@ -1098,12 +1113,14 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
     st.subheader("📌 Observaciones")
     num_observaciones = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("srv_num_obs", 0)), step=1)
     
+    if "srv_texto_obs" not in st.session_state:
+        st.session_state["srv_texto_obs"] = cargar_memoria("srv_texto_obs", "")
+
     texto_observaciones_srv = st.text_area(
         "Redacte las observaciones (una por línea):",
-        value=cargar_memoria("srv_texto_obs", ""),
         placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
         height=150,
-        key="obs_txt_srv"
+        key="srv_texto_obs"
     )
     
     col_obs_btn1_s, col_obs_btn2_s = st.columns([3, 1])
@@ -1112,14 +1129,15 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
             if texto_observaciones_srv.strip():
                 with st.spinner("🤖 Mejorando..."):
                     obs_mejorada_s = mejorar_redaccion_ia(texto_observaciones_srv, "observación")
-                    st.session_state["obs_mejorada_srv"] = obs_mejorada_s
+                    st.session_state["obs_mejorada_mostrar_srv"] = obs_mejorada_s
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "obs_mejorada_srv" in st.session_state:
+    if "obs_mejorada_mostrar_srv" in st.session_state:
         st.text_area(
             "Observaciones mejoradas:",
-            value=st.session_state["obs_mejorada_srv"],
+            value=st.session_state["obs_mejorada_mostrar_srv"],
             key="obs_mejorada_display_srv",
             height=150,
             disabled=True
@@ -1128,12 +1146,13 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         col_conf1_s, col_conf2_s = st.columns(2)
         with col_conf1_s:
             if st.button("✅ Usar mejorado", key="btn_usar_obs_srv"):
-                guardar_memoria("srv_texto_obs", st.session_state["obs_mejorada_srv"])
-                del st.session_state["obs_mejorada_srv"]
+                guardar_memoria("srv_texto_obs", st.session_state["obs_mejorada_mostrar_srv"])
+                del st.session_state["srv_texto_obs"]
+                del st.session_state["obs_mejorada_mostrar_srv"]
                 st.rerun()
         with col_conf2_s:
             if st.button("❌ Mantener original", key="btn_mantener_obs_srv"):
-                del st.session_state["obs_mejorada_srv"]
+                del st.session_state["obs_mejorada_mostrar_srv"]
                 st.rerun()
 
     st.subheader("🚓 Organismos Presentes")
@@ -1174,11 +1193,15 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 )
 
     st.subheader("📝 Reseña y Acciones Operativas")
+    
+    if "srv_resena" not in st.session_state:
+        st.session_state["srv_resena"] = cargar_memoria("srv_resena", "")
+
     resena_borrador = st.text_area(
         "Reseña:",
-        value=cargar_memoria("srv_resena", ""),
         placeholder="Ejemplo: Por instrucciones del jefe...",
-        height=100
+        height=100,
+        key="srv_resena"
     )
     
     col_res_btn1, col_res_btn2 = st.columns([3, 1])
@@ -1187,14 +1210,15 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
             if resena_borrador.strip():
                 with st.spinner("🤖 Mejorando..."):
                     resena_mejorada_ia = mejorar_redaccion_ia(resena_borrador, "reseña")
-                    st.session_state["resena_mejorada_srv"] = resena_mejorada_ia
+                    st.session_state["resena_mejorada_mostrar_srv"] = resena_mejorada_ia
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "resena_mejorada_srv" in st.session_state:
+    if "resena_mejorada_mostrar_srv" in st.session_state:
         st.text_area(
             "Reseña mejorada:",
-            value=st.session_state["resena_mejorada_srv"],
+            value=st.session_state["resena_mejorada_mostrar_srv"],
             key="resena_mejorada_display_srv",
             height=100,
             disabled=True
@@ -1203,19 +1227,23 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         col_res_conf1, col_res_conf2 = st.columns(2)
         with col_res_conf1:
             if st.button("✅ Usar mejorado", key="btn_usar_resena_srv"):
-                guardar_memoria("srv_resena", st.session_state["resena_mejorada_srv"])
-                del st.session_state["resena_mejorada_srv"]
+                guardar_memoria("srv_resena", st.session_state["resena_mejorada_mostrar_srv"])
+                del st.session_state["srv_resena"]
+                del st.session_state["resena_mejorada_mostrar_srv"]
                 st.rerun()
         with col_res_conf2:
             if st.button("❌ Mantener original", key="btn_mantener_resena_srv"):
-                del st.session_state["resena_mejorada_srv"]
+                del st.session_state["resena_mejorada_mostrar_srv"]
                 st.rerun()
     
+    if "srv_acciones" not in st.session_state:
+        st.session_state["srv_acciones"] = cargar_memoria("srv_acciones", "")
+
     acciones_borrador = st.text_area(
         "Acciones Realizadas:",
-        value=cargar_memoria("srv_acciones", ""),
         placeholder="Ejemplo: 07:29 Hrs Se destaca comisión...",
-        height=150
+        height=150,
+        key="srv_acciones"
     )
     
     col_acc_btn1, col_acc_btn2 = st.columns([3, 1])
@@ -1224,14 +1252,15 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
             if acciones_borrador.strip():
                 with st.spinner("🤖 Mejorando..."):
                     acciones_mejoradas_ia = mejorar_redaccion_ia(acciones_borrador, "acciones realizadas")
-                    st.session_state["acciones_mejoradas_srv"] = acciones_mejoradas_ia
+                    st.session_state["acciones_mejoradas_mostrar_srv"] = acciones_mejoradas_ia
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "acciones_mejoradas_srv" in st.session_state:
+    if "acciones_mejoradas_mostrar_srv" in st.session_state:
         st.text_area(
             "Acciones mejoradas:",
-            value=st.session_state["acciones_mejoradas_srv"],
+            value=st.session_state["acciones_mejoradas_mostrar_srv"],
             key="acciones_mejoradas_display_srv",
             height=150,
             disabled=True
@@ -1240,16 +1269,16 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         col_acc_conf1, col_acc_conf2 = st.columns(2)
         with col_acc_conf1:
             if st.button("✅ Usar mejorado", key="btn_usar_acciones_srv"):
-                # Reemplazar "Jefe de Comisión" por el nombre real
+                texto_final = st.session_state["acciones_mejoradas_mostrar_srv"]
                 if jefe_comision:
-                    st.session_state["acciones_mejoradas_srv"] = st.session_state["acciones_mejoradas_srv"].replace("Jefe de Comisión", jefe_comision)
-                
-                guardar_memoria("srv_acciones", st.session_state["acciones_mejoradas_srv"])
-                del st.session_state["acciones_mejoradas_srv"]
+                    texto_final = texto_final.replace("Jefe de Comisión", jefe_comision)
+                guardar_memoria("srv_acciones", texto_final)
+                del st.session_state["srv_acciones"]
+                del st.session_state["acciones_mejoradas_mostrar_srv"]
                 st.rerun()
         with col_acc_conf2:
             if st.button("❌ Mantener original", key="btn_mantener_acciones_srv"):
-                del st.session_state["acciones_mejoradas_srv"]
+                del st.session_state["acciones_mejoradas_mostrar_srv"]
                 st.rerun()
     
     analista_srv = st.text_input("Analista que Registra", cargar_memoria("srv_analista", ""))
@@ -1267,7 +1296,6 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
                 dia_str = dias_semana[fecha_srv.weekday()]
                 
-                # Guardar en memoria JSON
                 guardar_memoria("srv_tipo_servicio", tipo_servicio)
                 guardar_memoria("srv_num_servicio", num_servicio)
                 guardar_memoria("srv_estado", srv_estado)
@@ -1368,7 +1396,7 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
     if st.session_state.reporte_generado:
         st.subheader("📋 Reporte Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.reporte_generado, language=None)
-        
+
     st.markdown("---")
     
     if st.button("📋 GENERAR REPORTE EJECUTIVO", use_container_width=True, key="btn_ejecutivo_srv"):
@@ -1376,7 +1404,6 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
             st.warning("⚠️ Necesitas reseña y acciones para generar el ejecutivo.")
         else:
             with st.spinner("🤖 Generando reporte ejecutivo..."):
-                # Combinar reseña y acciones para que la IA resuma
                 texto_combinado = f"RESEÑA: {resena_borrador}\n\nACCIONES: {acciones_borrador}"
                 resumen_ejecutivo = mejorar_redaccion_ia(texto_combinado, "ejecutivo")
                 
@@ -1724,12 +1751,14 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
     
     cant_obs_inc = st.number_input("Cantidad de Observaciones", min_value=0, value=int(cargar_memoria("inc_cant_obs", 0)), step=1)
     
+    if "inc_texto_obs" not in st.session_state:
+        st.session_state["inc_texto_obs"] = cargar_memoria("inc_texto_obs", "")
+
     texto_observaciones_inc = st.text_area(
         "Redacte las observaciones (una por línea):",
-        value=cargar_memoria("inc_texto_obs", ""),
         placeholder="Ejemplo:\n- Primera observación\n- Segunda observación\n- Tercera observación",
         height=150,
-        key="obs_txt_inc"
+        key="inc_texto_obs"
     )
     
     col_obs_btn1_i, col_obs_btn2_i = st.columns([3, 1])
@@ -1738,14 +1767,15 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if texto_observaciones_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
                     obs_mejorada_i = mejorar_redaccion_ia(texto_observaciones_inc, "observación")
-                    st.session_state["obs_mejorada_inc"] = obs_mejorada_i
+                    st.session_state["obs_mejorada_mostrar_inc"] = obs_mejorada_i
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "obs_mejorada_inc" in st.session_state:
+    if "obs_mejorada_mostrar_inc" in st.session_state:
         st.text_area(
             "Observaciones mejoradas:",
-            value=st.session_state["obs_mejorada_inc"],
+            value=st.session_state["obs_mejorada_mostrar_inc"],
             key="obs_mejorada_display_inc",
             height=150,
             disabled=True
@@ -1754,20 +1784,23 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         col_conf1_i, col_conf2_i = st.columns(2)
         with col_conf1_i:
             if st.button("✅ Usar mejorado", key="btn_usar_obs_inc"):
-                guardar_memoria("inc_texto_obs", st.session_state["obs_mejorada_inc"])
-                del st.session_state["obs_mejorada_inc"]
+                guardar_memoria("inc_texto_obs", st.session_state["obs_mejorada_mostrar_inc"])
+                del st.session_state["inc_texto_obs"]
+                del st.session_state["obs_mejorada_mostrar_inc"]
                 st.rerun()
         with col_conf2_i:
             if st.button("❌ Mantener original", key="btn_mantener_obs_inc"):
-                del st.session_state["obs_mejorada_inc"]
+                del st.session_state["obs_mejorada_mostrar_inc"]
                 st.rerun()
+
+    if "inc_resena" not in st.session_state:
+        st.session_state["inc_resena"] = cargar_memoria("inc_resena", default_resena)
 
     resena_inc = st.text_area(
         "RESEÑA:",
-        value=cargar_memoria("inc_resena", default_resena),
         placeholder="Ejemplo: Durante recorrido...",
         height=100,
-        key="resena_txt_inc"
+        key="inc_resena"
     )
     
     col_res_btn1_i, col_res_btn2_i = st.columns([3, 1])
@@ -1776,14 +1809,15 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
             if resena_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
                     resena_mejorada_inc_ia = mejorar_redaccion_ia(resena_inc, "reseña de incendio")
-                    st.session_state["resena_mejorada_inc"] = resena_mejorada_inc_ia
+                    st.session_state["resena_mejorada_mostrar_inc"] = resena_mejorada_inc_ia
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "resena_mejorada_inc" in st.session_state:
+    if "resena_mejorada_mostrar_inc" in st.session_state:
         st.text_area(
             "Reseña mejorada:",
-            value=st.session_state["resena_mejorada_inc"],
+            value=st.session_state["resena_mejorada_mostrar_inc"],
             key="resena_mejorada_display_inc",
             height=100,
             disabled=True
@@ -1792,20 +1826,23 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         col_res_conf1_i, col_res_conf2_i = st.columns(2)
         with col_res_conf1_i:
             if st.button("✅ Usar mejorado", key="btn_usar_resena_inc"):
-                guardar_memoria("inc_resena", st.session_state["resena_mejorada_inc"])
-                del st.session_state["resena_mejorada_inc"]
+                guardar_memoria("inc_resena", st.session_state["resena_mejorada_mostrar_inc"])
+                del st.session_state["inc_resena"]
+                del st.session_state["resena_mejorada_mostrar_inc"]
                 st.rerun()
         with col_res_conf2_i:
             if st.button("❌ Mantener original", key="btn_mantener_resena_inc"):
-                del st.session_state["resena_mejorada_inc"]
+                del st.session_state["resena_mejorada_mostrar_inc"]
                 st.rerun()
+
+    if "inc_acciones" not in st.session_state:
+        st.session_state["inc_acciones"] = cargar_memoria("inc_acciones", default_acciones)
 
     acciones_inc = st.text_area(
         "ACCIÓN REALIZADA (Bitácora de Eventos):",
-        value=cargar_memoria("inc_acciones", default_acciones),
         placeholder="Ejemplo:\n15:10 Hrs Se destaca...",
         height=200,
-        key="acciones_txt_inc"
+        key="inc_acciones"
     )
     
     col_acc_btn1_i, col_acc_btn2_i = st.columns([3, 1])
@@ -1813,15 +1850,16 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         if st.button("✨ IA Acciones", key="btn_ia_acciones_inc"):
             if acciones_inc.strip():
                 with st.spinner("🤖 Mejorando..."):
-                    acciones_mejoradas_inc_ia = mejorar_redaccion_ia(acciones_inc, "bitácora de eventos")
-                    st.session_state["acciones_mejoradas_inc"] = acciones_mejoradas_inc_ia
+                    acciones_mejoradas_inc_ia = mejorar_redaccion_ia(acciones_inc, "acciones realizadas")
+                    st.session_state["acciones_mejoradas_mostrar_inc"] = acciones_mejoradas_inc_ia
+                    st.rerun()
             else:
                 st.warning("Escribe algo primero")
     
-    if "acciones_mejoradas_inc" in st.session_state:
+    if "acciones_mejoradas_mostrar_inc" in st.session_state:
         st.text_area(
             "Acciones mejoradas:",
-            value=st.session_state["acciones_mejoradas_inc"],
+            value=st.session_state["acciones_mejoradas_mostrar_inc"],
             key="acciones_mejoradas_display_inc",
             height=200,
             disabled=True
@@ -1830,16 +1868,16 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         col_acc_conf1_i, col_acc_conf2_i = st.columns(2)
         with col_acc_conf1_i:
             if st.button("✅ Usar mejorado", key="btn_usar_acciones_inc"):
-                # Reemplazar "Jefe de Comisión" por el nombre real
+                texto_final_acc = st.session_state["acciones_mejoradas_mostrar_inc"]
                 if comandante_escena:
-                    st.session_state["acciones_mejoradas_inc"] = st.session_state["acciones_mejoradas_inc"].replace("Jefe de Comisión", comandante_escena)
-                
-                guardar_memoria("inc_acciones", st.session_state["acciones_mejoradas_inc"])
-                del st.session_state["acciones_mejoradas_inc"]
+                    texto_final_acc = texto_final_acc.replace("Jefe de Comisión", comandante_escena)
+                guardar_memoria("inc_acciones", texto_final_acc)
+                del st.session_state["inc_acciones"]
+                del st.session_state["acciones_mejoradas_mostrar_inc"]
                 st.rerun()
         with col_acc_conf2_i:
             if st.button("❌ Mantener original", key="btn_mantener_acciones_inc"):
-                del st.session_state["acciones_mejoradas_inc"]
+                del st.session_state["acciones_mejoradas_mostrar_inc"]
                 st.rerun()
 
     col_e1, col_e2, col_e3 = st.columns(3)
@@ -1859,9 +1897,11 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
         if not resena_inc.strip() or not acciones_inc.strip():
             st.warning("⚠️ Por favor complete la reseña y las acciones realizadas.")
         else:
+            if comandante_escena and acciones_inc:
+                acciones_inc = acciones_inc.replace("Jefe de Comisión", comandante_escena)
+            
             with st.spinner("🤖 Formateando el reporte de incendio..."):
                 
-                # Guardar en memoria JSON
                 guardar_memoria("inc_tipo_reporte", tipo_reporte)
                 guardar_memoria("inc_tipo_incendio", tipo_incendio)
                 guardar_memoria("inc_num_servicio", num_servicio_inc)
@@ -1962,7 +2002,7 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
 
 *FECHA:* {fecha_inc.strftime('%d/%m/%Y')}
 
-*HORA:* {hora_inc.strftime('%H:%M')} Hrs 
+*HORA:* {hora_inc.strftime('%H:%M')} HLV 
 
 *COMANDANTE EN ESCENA:* {comandante_escena} 
 
@@ -2014,7 +2054,7 @@ BFI: {efectivos_inc:02d}
 ✅ Humedad relativa: {humedad_val}
 ✅ Presión atmosférica: {presion_val}
 
-*HORA DE ENVÍO:* {hora_envio_inc.strftime('%H:%M')} Hrs
+*HORA DE ENVÍO:* {hora_envio_inc.strftime('%H:%M')} HLV
 
 *ESTATUS:*
 {estatus_inc}
@@ -2025,7 +2065,7 @@ BFI: {efectivos_inc:02d}
     if st.session_state.incendio_generado:
         st.subheader("📋 Reporte de Incendio Formateado")
         st.code(st.session_state.incendio_generado, language=None)
-        
+
     st.markdown("---")
     
     if st.button("📋 GENERAR REPORTE EJECUTIVO", use_container_width=True, key="btn_ejecutivo_inc"):
@@ -2067,8 +2107,7 @@ BFI: {efectivos_inc:02d}
     if "reporte_ejecutivo_inc" in st.session_state:
         st.subheader("📋 Reporte Ejecutivo Formateado")
         st.code(st.session_state.reporte_ejecutivo_inc, language=None)
-        
-# =========================================================
+        # =========================================================
 # MÓDULO 5: REPORTES MIXTOS
 # =========================================================
 elif opcion_modulo == "REPORTES MIXTOS":
@@ -2083,11 +2122,13 @@ elif opcion_modulo == "REPORTES MIXTOS":
         st.subheader("📝 Generar Nota Informativa")
         fecha_ni = st.date_input("Fecha de la Nota", datetime.now(), key="f_nota")
         
+        if "ni_texto" not in st.session_state:
+            st.session_state["ni_texto"] = cargar_memoria("ni_texto", ". El día hoy en horas matutinas se da continuidad a la Formación en servicio impartida por el coordinador Forestal (B) Mayor Mendoza Luis al personal perteneciente al estado Portuguesa y personal de planta con el tema: introducción del sistema S.A.R")
+
         texto_ni = st.text_area(
             "Contenido de la Nota Informativa",
-            value=cargar_memoria("ni_texto", ". El día hoy en horas matutinas se da continuidad a la Formación en servicio impartida por el coordinador Forestal (B) Mayor Mendoza Luis al personal perteneciente al estado Portuguesa y personal de planta con el tema: introducción del sistema S.A.R"),
             height=130,
-            key="txt_ni"
+            key="ni_texto"
         )
         
         col_ni_btn1, col_ni_btn2 = st.columns([3, 1])
@@ -2096,14 +2137,15 @@ elif opcion_modulo == "REPORTES MIXTOS":
                 if texto_ni.strip():
                     with st.spinner("🤖 Mejorando..."):
                         nota_mejorada_ni = mejorar_redaccion_ia(texto_ni, "nota informativa")
-                        st.session_state["nota_mejorada_ni"] = nota_mejorada_ni
+                        st.session_state["nota_mejorada_mostrar_ni"] = nota_mejorada_ni
+                        st.rerun()
                 else:
                     st.warning("Escribe algo primero")
         
-        if "nota_mejorada_ni" in st.session_state:
+        if "nota_mejorada_mostrar_ni" in st.session_state:
             st.text_area(
                 "Nota mejorada:",
-                value=st.session_state["nota_mejorada_ni"],
+                value=st.session_state["nota_mejorada_mostrar_ni"],
                 key="nota_mejorada_display_ni",
                 height=130,
                 disabled=True
@@ -2112,12 +2154,13 @@ elif opcion_modulo == "REPORTES MIXTOS":
             col_ni_conf1, col_ni_conf2 = st.columns(2)
             with col_ni_conf1:
                 if st.button("✅ Usar mejorado", key="btn_usar_nota_ni"):
-                    guardar_memoria("ni_texto", st.session_state["nota_mejorada_ni"])
-                    del st.session_state["nota_mejorada_ni"]
+                    guardar_memoria("ni_texto", st.session_state["nota_mejorada_mostrar_ni"])
+                    del st.session_state["ni_texto"]
+                    del st.session_state["nota_mejorada_mostrar_ni"]
                     st.rerun()
             with col_ni_conf2:
                 if st.button("❌ Mantener original", key="btn_mantener_nota_ni"):
-                    del st.session_state["nota_mejorada_ni"]
+                    del st.session_state["nota_mejorada_mostrar_ni"]
                     st.rerun()
         
         coord_ni = st.text_input("Coordinador Forestal", cargar_memoria("ni_coord", "My (B) Mendoza Luis"))
@@ -2132,7 +2175,6 @@ elif opcion_modulo == "REPORTES MIXTOS":
             nombre_dia = dias[fecha_ni.weekday()].capitalize()
             fecha_str_ni = f"{nombre_dia} {fecha_ni.strftime('%d/%m/%Y')}"
 
-            # Guardar en memoria JSON
             guardar_memoria("ni_texto", texto_ni)
             guardar_memoria("ni_coord", coord_ni)
 
@@ -2170,11 +2212,13 @@ elif opcion_modulo == "REPORTES MIXTOS":
             hora_met = st.text_input("Hora", cargar_memoria("met_hora", "07:26 Hrs"))
             capacidad_op = st.number_input("Capacidad Operativa", min_value=0, value=int(cargar_memoria("met_capacidad", 20)), step=1)
 
+        if "met_condiciones" not in st.session_state:
+            st.session_state["met_condiciones"] = cargar_memoria("met_condiciones", "Precipitaciones leves en el sector La Cumaca, parroquia San Diego, municipio San Diego, estado Carabobo")
+
         condiciones_met = st.text_area(
             "Condiciones Atmosféricas",
-            value=cargar_memoria("met_condiciones", "Precipitaciones leves en el sector La Cumaca, parroquia San Diego, municipio San Diego, estado Carabobo"),
             height=80,
-            key="cond_met"
+            key="met_condiciones"
         )
         
         col_met_btn1, col_met_btn2 = st.columns([3, 1])
@@ -2183,14 +2227,15 @@ elif opcion_modulo == "REPORTES MIXTOS":
                 if condiciones_met.strip():
                     with st.spinner("🤖 Mejorando..."):
                         cond_mejorada_met = mejorar_redaccion_ia(condiciones_met, "condiciones meteorológicas")
-                        st.session_state["cond_mejorada_met"] = cond_mejorada_met
+                        st.session_state["cond_mejorada_mostrar_met"] = cond_mejorada_met
+                        st.rerun()
                 else:
                     st.warning("Escribe algo primero")
         
-        if "cond_mejorada_met" in st.session_state:
+        if "cond_mejorada_mostrar_met" in st.session_state:
             st.text_area(
                 "Condiciones mejoradas:",
-                value=st.session_state["cond_mejorada_met"],
+                value=st.session_state["cond_mejorada_mostrar_met"],
                 key="cond_mejorada_display_met",
                 height=80,
                 disabled=True
@@ -2199,19 +2244,22 @@ elif opcion_modulo == "REPORTES MIXTOS":
             col_met_conf1, col_met_conf2 = st.columns(2)
             with col_met_conf1:
                 if st.button("✅ Usar mejorado", key="btn_usar_cond_met"):
-                    guardar_memoria("met_condiciones", st.session_state["cond_mejorada_met"])
-                    del st.session_state["cond_mejorada_met"]
+                    guardar_memoria("met_condiciones", st.session_state["cond_mejorada_mostrar_met"])
+                    del st.session_state["met_condiciones"]
+                    del st.session_state["cond_mejorada_mostrar_met"]
                     st.rerun()
             with col_met_conf2:
                 if st.button("❌ Mantener original", key="btn_mantener_cond_met"):
-                    del st.session_state["cond_mejorada_met"]
+                    del st.session_state["cond_mejorada_mostrar_met"]
                     st.rerun()
         
+        if "met_acciones" not in st.session_state:
+            st.session_state["met_acciones"] = cargar_memoria("met_acciones", "El personal se encuentra de manera preventiva para atender cualquier eventualidad que se pueda suscitar en la zona.")
+
         acciones_met = st.text_area(
             "Acciones Realizadas",
-            value=cargar_memoria("met_acciones", "El personal se encuentra de manera preventiva para atender cualquier eventualidad que se pueda suscitar en la zona."),
             height=80,
-            key="acc_met"
+            key="met_acciones"
         )
         
         col_acc_met_btn1, col_acc_met_btn2 = st.columns([3, 1])
@@ -2220,14 +2268,15 @@ elif opcion_modulo == "REPORTES MIXTOS":
                 if acciones_met.strip():
                     with st.spinner("🤖 Mejorando..."):
                         acc_mejorada_met = mejorar_redaccion_ia(acciones_met, "acciones realizadas")
-                        st.session_state["acc_mejorada_met"] = acc_mejorada_met
+                        st.session_state["acc_mejorada_mostrar_met"] = acc_mejorada_met
+                        st.rerun()
                 else:
                     st.warning("Escribe algo primero")
         
-        if "acc_mejorada_met" in st.session_state:
+        if "acc_mejorada_mostrar_met" in st.session_state:
             st.text_area(
                 "Acciones mejoradas:",
-                value=st.session_state["acc_mejorada_met"],
+                value=st.session_state["acc_mejorada_mostrar_met"],
                 key="acc_mejorada_display_met",
                 height=80,
                 disabled=True
@@ -2236,12 +2285,13 @@ elif opcion_modulo == "REPORTES MIXTOS":
             col_acc_met_conf1, col_acc_met_conf2 = st.columns(2)
             with col_acc_met_conf1:
                 if st.button("✅ Usar mejorado", key="btn_usar_acc_met"):
-                    guardar_memoria("met_acciones", st.session_state["acc_mejorada_met"])
-                    del st.session_state["acc_mejorada_met"]
+                    guardar_memoria("met_acciones", st.session_state["acc_mejorada_mostrar_met"])
+                    del st.session_state["met_acciones"]
+                    del st.session_state["acc_mejorada_mostrar_met"]
                     st.rerun()
             with col_acc_met_conf2:
                 if st.button("❌ Mantener original", key="btn_mantener_acc_met"):
-                    del st.session_state["acc_mejorada_met"]
+                    del st.session_state["acc_mejorada_mostrar_met"]
                     st.rerun()
 
         if 'reporte_met_generado' not in st.session_state:
@@ -2254,7 +2304,6 @@ elif opcion_modulo == "REPORTES MIXTOS":
             nombre_dia = dias[fecha_met.weekday()].capitalize()
             fecha_str_met = f"{nombre_dia} {fecha_met.strftime('%d/%m/%Y')}"
 
-            # Guardar en memoria JSON
             guardar_memoria("met_estado", estado_met)
             guardar_memoria("met_estacion", estacion_met)
             guardar_memoria("met_hora", hora_met)
@@ -2369,12 +2418,14 @@ elif opcion_modulo == "REPORTES MIXTOS":
             step=1
         )
 
+        if "unidad_motivo" not in st.session_state:
+            st.session_state["unidad_motivo"] = cargar_memoria("unidad_motivo", "")
+
         motivo_unidad = st.text_area(
             "Motivo:",
-            value=cargar_memoria("unidad_motivo", ""),
             placeholder="Ejemplo: Reporta C/1 (B) Brito Pedro que se encuentran en el lugar antes mencionado...",
             height=120,
-            key="motivo_unidad"
+            key="unidad_motivo"
         )
 
         col_mot_btn1, col_mot_btn2 = st.columns([3, 1])
@@ -2383,14 +2434,15 @@ elif opcion_modulo == "REPORTES MIXTOS":
                 if motivo_unidad.strip():
                     with st.spinner("🤖 Mejorando..."):
                         motivo_mejorado = mejorar_redaccion_ia(motivo_unidad, "motivo de unidad")
-                        st.session_state["motivo_mejorado_unidad"] = motivo_mejorado
+                        st.session_state["motivo_mejorado_mostrar_unidad"] = motivo_mejorado
+                        st.rerun()
                 else:
                     st.warning("Escribe algo primero")
 
-        if "motivo_mejorado_unidad" in st.session_state:
+        if "motivo_mejorado_mostrar_unidad" in st.session_state:
             st.text_area(
                 "Motivo mejorado:",
-                value=st.session_state["motivo_mejorado_unidad"],
+                value=st.session_state["motivo_mejorado_mostrar_unidad"],
                 key="motivo_mejorado_display_unidad",
                 height=120,
                 disabled=True
@@ -2399,12 +2451,13 @@ elif opcion_modulo == "REPORTES MIXTOS":
             col_mot_conf1, col_mot_conf2 = st.columns(2)
             with col_mot_conf1:
                 if st.button("✅ Usar mejorado", key="btn_usar_motivo_unidad"):
-                    guardar_memoria("unidad_motivo", st.session_state["motivo_mejorado_unidad"])
-                    del st.session_state["motivo_mejorado_unidad"]
+                    guardar_memoria("unidad_motivo", st.session_state["motivo_mejorado_mostrar_unidad"])
+                    del st.session_state["unidad_motivo"]
+                    del st.session_state["motivo_mejorado_mostrar_unidad"]
                     st.rerun()
             with col_mot_conf2:
                 if st.button("❌ Mantener original", key="btn_mantener_motivo_unidad"):
-                    del st.session_state["motivo_mejorado_unidad"]
+                    del st.session_state["motivo_mejorado_mostrar_unidad"]
                     st.rerun()
 
         if 'reporte_unidad_generado' not in st.session_state:
@@ -2416,7 +2469,6 @@ elif opcion_modulo == "REPORTES MIXTOS":
             if not motivo_unidad.strip():
                 st.warning("⚠️ Por favor complete el motivo.")
             else:
-                # Guardar en memoria JSON
                 guardar_memoria("unidad_tipo", tipo_unidad)
                 guardar_memoria("unidad_num", num_unidad if tipo_unidad == "UNIDAD TIPO MOTO" else 41)
                 guardar_memoria("unidad_comandante", comandante_comision)
@@ -2462,4 +2514,3 @@ elif opcion_modulo == "REPORTES MIXTOS":
         if st.session_state.reporte_unidad_generado:
             st.subheader("📋 Reporte de Unidad Formateado (Listo para copiar a WhatsApp)")
             st.code(st.session_state.reporte_unidad_generado, language=None)
-
