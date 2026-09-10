@@ -9,20 +9,20 @@ from openai import OpenAI
 # CONFIGURACIÓN DE API KEYS DESDE secrets.toml
 # =========================================================
 WINDY_API_KEY = st.secrets["WINDY_API_KEY"]
-OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
+DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
 
 # =========================================================
 # FUNCIÓN DE IA PARA MEJORAR REDACCIÓN
 # =========================================================
 
 def mejorar_redaccion_ia(texto, tipo_texto="general"):
-    """Mejora la redacción usando OpenRouter con prompts optimizados por tipo."""
+    """Mejora la redacción usando DeepSeek con prompts optimizados por tipo."""
     if not texto.strip():
         return "Sin información adicional registrada."
 
     client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
+        base_url="https://api.deepseek.com",
+        api_key=DEEPSEEK_API_KEY,
     )
 
     base = "Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
@@ -35,7 +35,7 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         "actividad": 'Actividad: pasado, tercera persona. Describe la actividad realizada.',
         "nota informativa": 'Nota informativa: tono institucional formal.',
         "condiciones meteorológicas": 'Condiciones: describe clima de forma técnica.',
-        "motivo de unidad": 'Motivo: incluye quién reporta y desde dónde.',
+        "motivo de unidad": 'Motivo: incluye quién reporta y desde dónde.',"ejecutivo": 'Redacta un resumen ejecutivo de los hechos sin horas ni quién reporta. Formato: un párrafo fluido en pasado, tercera persona.',
         "general": 'Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc.'
     }
 
@@ -51,7 +51,7 @@ TEXTO:
 MEJORADO:"""
 
     modelos = [
-        "inclusionai/ling-3.0-flash-sante:free"
+        "deepseek-chat"
     ]
     
     if "modelo_actual" not in st.session_state:
@@ -1369,6 +1369,52 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         st.subheader("📋 Reporte Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.reporte_generado, language=None)
         
+    st.markdown("---")
+    
+    if st.button("📋 GENERAR REPORTE EJECUTIVO", use_container_width=True, key="btn_ejecutivo_srv"):
+        if not resena_borrador.strip() or not acciones_borrador.strip():
+            st.warning("⚠️ Necesitas reseña y acciones para generar el ejecutivo.")
+        else:
+            with st.spinner("🤖 Generando reporte ejecutivo..."):
+                # Combinar reseña y acciones para que la IA resuma
+                texto_combinado = f"RESEÑA: {resena_borrador}\n\nACCIONES: {acciones_borrador}"
+                resumen_ejecutivo = mejorar_redaccion_ia(texto_combinado, "ejecutivo")
+                
+                dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                dia_str = dias_semana[fecha_srv.weekday()]
+                
+                st.session_state.reporte_ejecutivo_srv = f"""*SISTEMA NACIONAL PARA LA GESTIÓN DEL RIESGO*
+
+*CUERPO DE BOMBEROS FORESTALES DE INPARQUES*
+
+*REPORTE EJECUTIVO*
+
+*FECHA:* {fecha_srv.strftime('%d/%m/%Y')}
+
+*ESTADO:* {srv_estado}
+
+*HORA DE INICIO:* {hora_inicio.strftime('%H:%M')} hrs
+
+*HORA DE FIN:* {hora_fin.strftime('%H:%M')} hrs
+
+*DIRECCIÓN:* {ubicacion_srv}
+
+*EVENTO:* {tipo_servicio}
+
+*DESCRIPCIÓN:*
+
+{resumen_ejecutivo}
+
+*COORDENADAS:*
+
+{latitud_srv},{longitud_srv}
+
+*ESTATUS:* {estatus_srv}"""
+
+    if "reporte_ejecutivo_srv" in st.session_state:
+        st.subheader("📋 Reporte Ejecutivo Formateado")
+        st.code(st.session_state.reporte_ejecutivo_srv, language=None)
+        
 # =========================================================
 # MÓDULO 4: REPORTES DE INCENDIOS
 # =========================================================
@@ -1980,6 +2026,48 @@ BFI: {efectivos_inc:02d}
         st.subheader("📋 Reporte de Incendio Formateado")
         st.code(st.session_state.incendio_generado, language=None)
         
+    st.markdown("---")
+    
+    if st.button("📋 GENERAR REPORTE EJECUTIVO", use_container_width=True, key="btn_ejecutivo_inc"):
+        if not resena_inc.strip() or not acciones_inc.strip():
+            st.warning("⚠️ Necesitas reseña y acciones para generar el ejecutivo.")
+        else:
+            with st.spinner("🤖 Generando reporte ejecutivo..."):
+                texto_combinado = f"RESEÑA: {resena_inc}\n\nACCIONES: {acciones_inc}"
+                resumen_ejecutivo_inc = mejorar_redaccion_ia(texto_combinado, "ejecutivo")
+                
+                st.session_state.reporte_ejecutivo_inc = f"""*SISTEMA NACIONAL PARA LA GESTIÓN DEL RIESGO*
+
+*CUERPO DE BOMBEROS FORESTALES DE INPARQUES*
+
+*REPORTE EJECUTIVO*
+
+*FECHA:* {fecha_inc.strftime('%d/%m/%Y')}
+
+*ESTADO:* {estado_inc}
+
+*HORA DE INICIO:* {hora_inc.strftime('%H:%M')} hrs
+
+*DIRECCIÓN:* {sector} sub-sector {sub_sector}, Parroquia {parroquia}, Municipio {municipio}, Estado {estado_inc}
+
+*EVENTO:* {tipo_incendio}
+
+*ABRAE:* {abrae_inc}
+
+*DESCRIPCIÓN:*
+
+{resumen_ejecutivo_inc}
+
+*COORDENADAS:*
+
+{lat_inc},{lon_inc}
+
+*ESTATUS:* {estatus_inc}"""
+
+    if "reporte_ejecutivo_inc" in st.session_state:
+        st.subheader("📋 Reporte Ejecutivo Formateado")
+        st.code(st.session_state.reporte_ejecutivo_inc, language=None)
+        
 # =========================================================
 # MÓDULO 5: REPORTES MIXTOS
 # =========================================================
@@ -2374,3 +2462,4 @@ elif opcion_modulo == "REPORTES MIXTOS":
         if st.session_state.reporte_unidad_generado:
             st.subheader("📋 Reporte de Unidad Formateado (Listo para copiar a WhatsApp)")
             st.code(st.session_state.reporte_unidad_generado, language=None)
+
