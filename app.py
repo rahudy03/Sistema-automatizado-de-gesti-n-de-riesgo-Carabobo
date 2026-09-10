@@ -719,7 +719,7 @@ if opcion_modulo == "PARTE MATUTINO":
 *JEFE DE ESTACIÓN:* 
 {jefe_estacion}    
 
-*JEFE DE SECCIÓN:* (Auxiliar) {jefe_seccion} 
+*JEFE DE SECCIÓN:* {jefe_seccion} 
 
 *PIE DE FUERZA:* {pie_fuerza:02d}
 
