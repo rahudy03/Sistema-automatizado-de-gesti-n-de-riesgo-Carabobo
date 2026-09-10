@@ -25,17 +25,17 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         api_key=DEEPSEEK_API_KEY,
     )
 
-    base = "Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
+    base = "Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. corrige rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
 
     instrucciones = {
-                "reseña": 'Reseña: pasado, tercera persona, un párrafo fluido. Incluye quién llamó, por instrucción de quién y a quién se mandó.',
-        "reseña de incendio": 'Reseña: pasado, tercera persona, un párrafo fluido. Describe cómo se detectó el incendio.',
-        "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora y donde no se especifica quién reporta. Si ya se menciona otro medio (radio, teléfono), no agregar WhatsApp.',
+                "reseña": 'Reseña: pasado, tercera persona, un párrafo fluido.',
+        "reseña de incendio": 'Reseña: pasado, tercera persona, un párrafo fluido.',
+        "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar al comienzo "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora y donde se especifica quién reporta. Si ya se menciona otro medio (radio, teléfono), no agregar WhatsApp.',
         "observación": 'Observación: breve, directo, tono formal, solo hechos concretos.',
         "actividad": 'Actividad: pasado, tercera persona. Describe la actividad realizada.',
         "nota informativa": 'Nota informativa: tono institucional formal.',
         "condiciones meteorológicas": 'Condiciones: describe clima de forma técnica.',
-        "motivo de unidad": 'Motivo: incluye quién reporta y desde dónde.',"ejecutivo": 'Redacta un resumen ejecutivo de los hechos sin horas ni quién reporta. Formato: un párrafo fluido en pasado, tercera persona.',
+        "motivo de unidad": 'Motivo: se breve.',"ejecutivo": 'Redacta un resumen ejecutivo de los hechos sin horas ni quién reporta. Formato: un párrafo fluido en pasado, tercera persona sin titulos.',
         "general": 'Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc.'
     }
 
