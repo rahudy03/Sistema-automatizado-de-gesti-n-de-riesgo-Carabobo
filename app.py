@@ -25,7 +25,7 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         api_key=DEEPSEEK_API_KEY,
     )
 
-    base = "Corrige y redacta de forma muy técnica bomberil.NO agrgar ni quitar infprmacion. Mantén esencia y estructura original. corrige rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
+    base = "Corrige y redacta de forma muy técnica bomberil.No agregar ni quitar informacion. Mantén esencia y estructura original. corrige rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
 
     instrucciones = {
                 "reseña": 'Reseña: pasado, tercera persona, un párrafo fluido.',
