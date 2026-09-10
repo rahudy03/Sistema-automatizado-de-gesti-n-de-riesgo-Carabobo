@@ -25,10 +25,9 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         api_key=DEEPSEEK_API_KEY,
     )
 
-    base = "Corrige y redacta de forma muy técnica bomberil.No agregar ni quitar informacion. Mantén esencia y estructura original. corrige rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc."
+    base = "Redacta técnico bomberil sin títulos. No agregar ni quitar informacion. Mantén esencia y estructura original. Corrige ortografía. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Unidades: UM-41, 4.4, 4.2, particular, etc."
 
-    instrucciones = {
-                "reseña": 'Reseña: pasado, tercera persona, un párrafo fluido.',
+    instrucciones = {"reseña": 'Reseña: pasado, tercera persona, un párrafo fluido.',
         "reseña de incendio": 'Reseña: pasado, tercera persona, un párrafo fluido.',
         "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar al comienzo "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora y donde se especifica quién reporta. Si ya se menciona otro medio (radio, teléfono), no agregar WhatsApp.',
         "observación": 'Observación: breve, directo, tono formal, solo hechos concretos.',
@@ -1095,7 +1094,7 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
             srv_sector = st.text_input("Sector", cargar_memoria("srv_sector", ""), key="s_sec")
             srv_sub_sector = st.text_input("Sub-sector", cargar_memoria("srv_sub_sector", ""), key="s_sub_sec")
         
-        ubicacion_srv = f"{srv_sub_sector}, {srv_sector}, parroquia {srv_parroquia}, municipio {srv_municipio}, estado {srv_estado}"
+        ubicacion_srv = f"sub-sector {srv_sub_sector}, sector {srv_sector}, parroquia {srv_parroquia}, municipio {srv_municipio}, estado {srv_estado}"
 
         jefe_comision = st.text_input("Jefe de Comisión", cargar_memoria("srv_jefe_comision", ""), placeholder="Indique el rango y nombre")
 
@@ -1953,13 +1952,14 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                 datos_incendio = {
                     "tipo_servicio": tipo_incendio,
                     "num_servicio": num_servicio_inc,
-                    "ubicacion": f"{sector}, {municipio}",
+                    "ubicacion": f"sector {sector}, sub-sector {sub_sector}, parroquia {parroquia}, municipio {municipio}, estado {estado_inc}",
                     "resena": resena_inc,
                     "coordenadas": f"{lat_inc}, {lon_inc}",
                     "estatus": estatus_inc
                 }
-                registrar_servicio_dia(datos_incendio)
-                
+                if "preliminar_cargado" not in st.session_state:
+                    registrar_servicio_dia(datos_incendio)
+
                 if estatus_inc not in ["Finalizado", "Finalizado-combatido"]:
                     datos_preliminar = {
                         "tipo_reporte": tipo_reporte,
@@ -2408,7 +2408,7 @@ elif opcion_modulo == "REPORTES MIXTOS":
             parroquia_unidad = st.text_input("Parroquia", cargar_memoria("unidad_parroquia", ""), key="parroquia_unidad")
             sector_unidad = st.text_input("Sector", cargar_memoria("unidad_sector", ""), key="sector_unidad")
 
-        ubicacion_unidad = f"parroquia {parroquia_unidad}, municipio {municipio_unidad}, {sector_unidad}, estado {estado_unidad}"
+        ubicacion_unidad = f" {sector_unidad}, parroquia {parroquia_unidad}, municipio {municipio_unidad}, estado {estado_unidad}"
 
         st.subheader("👥 Efectivos y Motivo")
         cantidad_efectivos_unidad = st.number_input(
@@ -2484,13 +2484,7 @@ elif opcion_modulo == "REPORTES MIXTOS":
                 dia_str_unidad = dias_semana_unidad[fecha_unidad.weekday()]
                 fecha_str_unidad = f"{dia_str_unidad} {fecha_unidad.strftime('%d/%m/%Y')}"
 
-                st.session_state.reporte_unidad_generado = f"""*SISTEMA NACIONAL DE GESTIÓN DE RIESGOS*
-
-*CUERPO DE BOMBEROS FORESTALES INPARQUES*
-
-*COORDINACIÓN FORESTAL CARABOBO*
-
-*EBF LAS JOSEFINAS*
+                st.session_state.reporte_unidad_generado = f"""
 
 *REPORTE DE {unidad_completa}*
 
