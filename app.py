@@ -25,7 +25,7 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         api_key=DEEPSEEK_API_KEY,
     )
 
-    base = "Redacta técnico bomberil sin títulos. No agregar ni quitar informacion. Mantén esencia y estructura original. Corrige ortografía. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Unidades: UM-41, 4.4, 4.2, particular, etc."
+    base = "Redacta técnico bomberil sin títulos. No agregar ni quitar informacion. Mantén esencia y estructura original. Corrige ortografía. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)),( Bbra, Bbro, pasante: Pste(sin (B)). Unidades: UM-41, 4.4, 4.2, particular, etc."
 
     instrucciones = {"reseña": 'Reseña: pasado, tercera persona, un párrafo fluido.',
         "reseña de incendio": 'Reseña: pasado, tercera persona, un párrafo fluido.',
