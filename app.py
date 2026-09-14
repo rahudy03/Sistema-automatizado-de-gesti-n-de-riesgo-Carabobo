@@ -34,7 +34,7 @@ def mejorar_redaccion_ia(texto, tipo_texto="general"):
         "actividad": 'Actividad: pasado, tercera persona. Describe la actividad realizada.',
         "nota informativa": 'Nota informativa: tono institucional formal.',
         "condiciones meteorológicas": 'Condiciones: describe clima de forma técnica.',
-        "motivo de unidad": 'Motivo: se breve.',"ejecutivo": 'Redacta un resumen ejecutivo de los hechos sin horas ni quién reportan no agregues las unidades ni los vehículos, que sea un párrafo fluido. Formato: un párrafo fluido en pasado, tercera persona sin titulos.',
+        "motivo de unidad": 'Motivo: se breve.',"ejecutivo": 'Resumen ejecutivo en UN PÁRRAFO FLUIDO, pasado, 3ra persona. Elimina "Reporta vía WhatsApp", horas, repeticiones y frases como "que se encuentran en...". Une los hechos de forma narrativa: qué pasó, quién actuó, qué se encontró y cómo terminó.',
         "general": 'Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc.'
     }
 
