@@ -1,4 +1,5 @@
 import json
+import re
 import os
 import streamlit as st
 from datetime import datetime
@@ -10,71 +11,69 @@ from openai import OpenAI
 # =========================================================
 WINDY_API_KEY = st.secrets["WINDY_API_KEY"]
 DEEPSEEK_API_KEY = st.secrets["DEEPSEEK_API_KEY"]
+OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 
 # =========================================================
 # FUNCIÓN DE IA PARA MEJORAR REDACCIÓN
 # =========================================================
 
 def mejorar_redaccion_ia(texto, tipo_texto="general"):
-    """Mejora la redacción usando DeepSeek con prompts optimizados por tipo."""
+    """Mejora la redacción usando DeepSeek con respaldo de OpenRouter."""
     if not texto.strip():
         return "Sin información adicional registrada."
 
-    client = OpenAI(
-        base_url="https://api.deepseek.com",
-        api_key=DEEPSEEK_API_KEY,
-    )
+    base = "Redacta muy (técnico, militarizada y bomberil) sin títulos. No agregar ni quitar informacion. Mantén esencia y estructura original. Corrige ortografía. Corrige rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste(sin (B)). corregir Unidades: moto=UM, 4.4 Transporte de personal, 4.2 Cisterna, etc."
 
-    base = "Redacta muy técnico bomberil sin títulos. No agregar ni quitar informacion. Mantén esencia y estructura original. Corrige ortografía. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)),( Bbra, Bbro, pasante: Pste(sin (B)) corrige Unidades: UM-41, 4.4, 4.2, particular, etc."
-
-    instrucciones = {"reseña": 'Reseña: pasado, tercera persona, un párrafo fluido.',
-        "reseña de incendio": 'Reseña: pasado, tercera persona, un párrafo fluido.',
-        "acciones realizadas": 'Acciones: formato "HH:MM Hrs descripción de la acción", 24 horas. Agregar al comienzo "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora y donde se especifica quién reporta. Si ya se menciona otro medio (radio, teléfono), no agregar WhatsApp.',
-        "observación": 'Observación: breve, directo, tono formal, solo hechos concretos.',
-        "actividad": 'Actividad: pasado, tercera persona. Describe la actividad realizada.',
-        "nota informativa": 'Nota informativa: tono institucional formal.',
-        "condiciones meteorológicas": 'Condiciones: describe clima de forma técnica.',
-        "motivo de unidad": 'Motivo: se breve.',"ejecutivo": 'Resumen ejecutivo en UN PÁRRAFO FLUIDO, pasado, 3ra persona. Elimina "Reporta vía WhatsApp", horas, repeticiones y frases como "que se encuentran en...". Une los hechos de forma narrativa: qué pasó, quién actuó, qué se encontró y cómo terminó.',
-        "general": 'Corrige y redacta de forma muy técnica bomberil. Mantén esencia y estructura original. Rangos: 1er Gral, Gral, Tcnl, My, Cap, 1er Tte, Tte, S/M, S/1, S/2, C/1, C/2, Dtgdo (todos con (B)), Bbra, Bbro, Pste. Mantén unidades tal cual: UM-41, 4.4, 4.2, etc.'
+    instrucciones = {
+        "reseña": 'Pasado, 3ra persona, un párrafo fluido.',
+        "reseña de incendio": 'Pasado, 3ra persona, un párrafo fluido.',
+        "acciones realizadas": 'Formato "HH:MM Hrs descripción", 24 horas. Agregar "Reporta vía WhatsApp el Jefe de Comisión" excepto en la primera hora o si ya se especifica quién reporta.',
+        "observación": 'Breve, directo, formal, solo hechos.',
+        "actividad": 'Pasado, 3ra persona.',
+        "nota informativa": 'Tono institucional formal.',
+        "condiciones meteorológicas": 'Clima técnico.',
+        "motivo de unidad": 'Breve.',
+        "ejecutivo": 'Un párrafo fluido, pasado, 3ra persona. Elimina "Reporta vía WhatsApp", horas, repeticiones. Une los hechos narrativamente.',
+        "general": base
     }
 
-    instruccion = instrucciones.get(tipo_texto, "")
+    prompt = f"""{base} {instrucciones.get(tipo_texto, "")}
 
-    prompt = f"""{base} {instruccion}
-
-Devuelve SOLO el texto mejorado, sin frases adicionales.
+Devuelve SOLO el texto mejorado.
 
 TEXTO:
 {texto}
 
 MEJORADO:"""
 
-    modelos = [
-        "deepseek-chat"
+    # max_tokens dinámico según el tipo
+    if tipo_texto in ["acciones realizadas", "ejecutivo", "nota informativa"]:
+        max_tok = 1000
+    elif tipo_texto in ["reseña", "reseña de incendio"]:
+        max_tok = 500
+    else:
+        max_tok = 300
+
+    # Lista de proveedores (en orden de preferencia)
+    proveedores = [
+        ("https://api.deepseek.com", DEEPSEEK_API_KEY, "deepseek-chat"),
+        ("https://openrouter.ai/api/v1", OPENROUTER_API_KEY, "inclusionai/ling-3.0-flash"),
     ]
-    
-    if "modelo_actual" not in st.session_state:
-        st.session_state["modelo_actual"] = 0
-    
-    for intento in range(len(modelos)):
-        indice_modelo = (st.session_state["modelo_actual"] + intento) % len(modelos)
-        modelo_elegido = modelos[indice_modelo]
-        
+
+    for url, key, model in proveedores:
         try:
+            client = OpenAI(base_url=url, api_key=key)
             response = client.chat.completions.create(
-                model=modelo_elegido,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=300,
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tok,
                 temperature=0.3
             )
-            st.session_state["modelo_actual"] = (indice_modelo + 1) % len(modelos)
             return response.choices[0].message.content.strip()
         except:
             continue
-    
-    st.warning("⚠️ Se excedió el límite de solicitudes. Intenta más tarde.")
+
+    st.warning("⚠️ Todos los proveedores fallaron. Intenta más tarde.")
     texto_limpio = texto.strip().capitalize()
     if not texto_limpio.endswith('.'):
         texto_limpio += '.'
@@ -719,7 +718,7 @@ if opcion_modulo == "PARTE MATUTINO":
 *JEFE DE ESTACIÓN:* 
 {jefe_estacion}    
 
-*JEFE DE SECCIÓN:* {jefe_seccion} 
+*JEFE DE SECCIÓN:* (Auxiliar) {jefe_seccion} 
 
 *PIE DE FUERZA:* {pie_fuerza:02d}
 
@@ -1404,6 +1403,8 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         else:
             with st.spinner("🤖 Generando reporte ejecutivo..."):
                 texto_combinado = f"RESEÑA: {resena_borrador}\n\nACCIONES: {acciones_borrador}"
+                texto_combinado = re.sub(r'\d{2}:\d{2}\s*Hrs\s*', '', texto_combinado)
+                texto_combinado = texto_combinado.replace("Reporta vía WhatsApp el ", "").replace("Reporta vía WhatsApp la ", "").replace("Reporta vía WhatsApp ", "").replace("Reporta el ", "").replace("Reporta la ", "")
                 resumen_ejecutivo = mejorar_redaccion_ia(texto_combinado, "ejecutivo")
                 
                 dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -2074,6 +2075,8 @@ BFI: {efectivos_inc:02d}
         else:
             with st.spinner("🤖 Generando reporte ejecutivo..."):
                 texto_combinado = f"RESEÑA: {resena_inc}\n\nACCIONES: {acciones_inc}"
+                texto_combinado = re.sub(r'\d{2}:\d{2}\s*Hrs\s*', '', texto_combinado)
+                texto_combinado = texto_combinado.replace("Reporta vía WhatsApp el ", "").replace("Reporta vía WhatsApp la ", "").replace("Reporta vía WhatsApp ", "").replace("Reporta el ", "").replace("Reporta la ", "")
                 resumen_ejecutivo_inc = mejorar_redaccion_ia(texto_combinado, "ejecutivo")
                 
                 st.session_state.reporte_ejecutivo_inc = f"""*SISTEMA NACIONAL PARA LA GESTIÓN DEL RIESGO*
