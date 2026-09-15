@@ -185,45 +185,49 @@ def guardar_servicios_persistencia(lista):
     except:
         pass
 
-def guardar_incendio_preliminar(datos_incendio):
-    """Guarda o actualiza un incendio en proceso."""
+ARCHIVO_SERVICIOS_PROCESO = "servicios_en_proceso.json"
+
+def guardar_proceso(datos, archivo):
+    """Guarda o actualiza un proceso (sirve para incendios y servicios)."""
     lista = []
-    if os.path.exists(ARCHIVO_PRELIMINARES):
+    if os.path.exists(archivo):
         try:
-            with open(ARCHIVO_PRELIMINARES, "r", encoding="utf-8") as f:
+            with open(archivo, "r", encoding="utf-8") as f:
                 lista = json.load(f)
         except:
             lista = []
     
-    datos_incendio["fecha_modificacion"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+    datos["fecha_modificacion"] = datetime.now().strftime("%d/%m/%Y %H:%M")
     
-    num_servicio = datos_incendio.get("num_servicio", "")
+    num_servicio = datos.get("num_servicio", "")
     encontrado = False
     for i, item in enumerate(lista):
         if item.get("num_servicio") == num_servicio and num_servicio:
-            lista[i] = datos_incendio
+            lista[i] = datos
             encontrado = True
             break
     
     if not encontrado:
-        lista.append(datos_incendio)
+        lista.append(datos)
     
-    with open(ARCHIVO_PRELIMINARES, "w", encoding="utf-8") as f:
+    with open(archivo, "w", encoding="utf-8") as f:
         json.dump(lista, f, ensure_ascii=False, indent=4)
 
-def cargar_incendios_preliminares():
-    """Carga los incendios en proceso guardados."""
-    if not os.path.exists(ARCHIVO_PRELIMINARES):
+
+def cargar_procesos(archivo):
+    """Carga los procesos guardados (incendios o servicios)."""
+    if not os.path.exists(archivo):
         return []
     try:
-        with open(ARCHIVO_PRELIMINARES, "r", encoding="utf-8") as f:
+        with open(archivo, "r", encoding="utf-8") as f:
             return json.load(f)
     except:
         return []
 
-def eliminar_incendio_preliminar(indice_o_num_servicio):
-    """Elimina un incendio en proceso por índice o número de servicio."""
-    lista = cargar_incendios_preliminares()
+
+def eliminar_proceso(indice_o_num_servicio, archivo):
+    """Elimina un proceso por índice o número de servicio."""
+    lista = cargar_procesos(archivo)
     
     if isinstance(indice_o_num_servicio, int):
         if 0 <= indice_o_num_servicio < len(lista):
@@ -231,9 +235,31 @@ def eliminar_incendio_preliminar(indice_o_num_servicio):
     else:
         lista = [item for item in lista if item.get("num_servicio") != indice_o_num_servicio]
     
-    with open(ARCHIVO_PRELIMINARES, "w", encoding="utf-8") as f:
+    with open(archivo, "w", encoding="utf-8") as f:
         json.dump(lista, f, ensure_ascii=False, indent=4)
     return True
+
+
+# Funciones específicas para INCENDIOS
+def guardar_incendio_preliminar(datos_incendio):
+    guardar_proceso(datos_incendio, ARCHIVO_PRELIMINARES)
+
+def cargar_incendios_preliminares():
+    return cargar_procesos(ARCHIVO_PRELIMINARES)
+
+def eliminar_incendio_preliminar(indice_o_num_servicio):
+    return eliminar_proceso(indice_o_num_servicio, ARCHIVO_PRELIMINARES)
+
+
+# Funciones específicas para SERVICIOS
+def guardar_servicio_proceso(datos_servicio):
+    guardar_proceso(datos_servicio, ARCHIVO_SERVICIOS_PROCESO)
+
+def cargar_servicios_proceso():
+    return cargar_procesos(ARCHIVO_SERVICIOS_PROCESO)
+
+def eliminar_servicio_proceso(indice_o_num_servicio):
+    return eliminar_proceso(indice_o_num_servicio, ARCHIVO_SERVICIOS_PROCESO)
 
 def obtener_numero_progresivo(num_servicio):
     """Obtiene el siguiente número progresivo para un incendio."""
@@ -504,22 +530,51 @@ opcion_modulo = st.sidebar.radio(
 st.sidebar.markdown("---")
 st.sidebar.info("Sistema de Gestión e Informes Operativos")
 
-# =========================================================
-# MÓDULO 1: RESUMEN MATUTINO (PARTE GENERAL)
-# =========================================================
+
+# MÓDULO 1: RESUMEN MATUTINO (PARTE GENERAL)#################
+
 if opcion_modulo == "PARTE MATUTINO":
     st.header("🌅 Parte Matutino")
 
     st.subheader("📌 Datos del Encabezado")
     col1, col2 = st.columns(2)
     with col1:
-        coord_estadal = st.text_input("Coordinador Forestal Estadal", cargar_memoria("mat_coord_estadal", "My (B) Mendoza Luis"))
-        jefe_estacion = st.text_input("Jefe de Estación", cargar_memoria("mat_jefe_estacion", "S/2 (B) Meléndez Alberlen"))
-        jefe_seccion = st.text_input("Jefe de Sección / Auxiliar", cargar_memoria("mat_jefe_seccion", "C/2 (B) Berroteran Luis"))
+        coord_estadal = st.text_input("Coordinador Forestal Estadal", "My (B) Mendoza Luis", disabled=True)
+        jefe_estacion = st.text_input("Jefe de Estación", "S/2 (B) Meléndez Alberlen", disabled=True)
+        
+        seccion_guardia = st.selectbox(
+            "Sección de Guardia",
+            ["A", "B", "C"],
+            index=["A", "B", "C"].index(cargar_memoria("mat_seccion_guardia", "C"))
+        )
+        
+        jefes_por_seccion = {
+            "A": "C/1 (B) Mendoza Oswaldo",
+            "B": "C/2 (B) Reyes Edwin",
+            "C": "C/1 (B) Montenegro Martin"
+        }
+        
+        auxiliares_por_seccion = {
+            "A": "(Auxiliar A)",
+            "B": "(Auxiliar B)",
+            "C": "(Auxiliar C)"
+        }
+        
+        auxiliar_a_cargo = st.checkbox(
+            "¿Auxiliar a cargo?",
+            value=cargar_memoria("mat_auxiliar_a_cargo", False)
+        )
+        
+        if auxiliar_a_cargo:
+            jefe_seccion = auxiliares_por_seccion[seccion_guardia]
+        else:
+            jefe_seccion = jefes_por_seccion[seccion_guardia]
+        
+        st.text_input("Jefe de Sección / Auxiliar", jefe_seccion, disabled=True)
+        
         fecha_mat = st.date_input("Fecha", datetime.now(), key="f_mat")
     with col2:
         parte_num = st.text_input("Parte N°", cargar_memoria("mat_parte_num", "240-2026"))
-        seccion_guardia = st.text_input("Sección de Guardia", cargar_memoria("mat_seccion_guardia", "C"))
         pie_fuerza = st.number_input("Pie de Fuerza Total", min_value=1, value=int(cargar_memoria("mat_pie_fuerza", 49)), step=1)
         analista_mat = st.text_input("Analista de Guardia", cargar_memoria("mat_analista", ""))
 
@@ -661,9 +716,10 @@ if opcion_modulo == "PARTE MATUTINO":
 
         guardar_memoria("mat_coord_estadal", coord_estadal)
         guardar_memoria("mat_jefe_estacion", jefe_estacion)
+        guardar_memoria("mat_seccion_guardia", seccion_guardia)
+        guardar_memoria("mat_auxiliar_a_cargo", auxiliar_a_cargo)
         guardar_memoria("mat_jefe_seccion", jefe_seccion)
         guardar_memoria("mat_parte_num", parte_num)
-        guardar_memoria("mat_seccion_guardia", seccion_guardia)
         guardar_memoria("mat_pie_fuerza", pie_fuerza)
         guardar_memoria("mat_analista", analista_mat)
         guardar_memoria("mat_p_guardia", p_guardia)
@@ -718,7 +774,7 @@ if opcion_modulo == "PARTE MATUTINO":
 *JEFE DE ESTACIÓN:* 
 {jefe_estacion}    
 
-*JEFE DE SECCIÓN:* (Auxiliar) {jefe_seccion} 
+*JEFE DE SECCIÓN:* {jefe_seccion} 
 
 *PIE DE FUERZA:* {pie_fuerza:02d}
 
@@ -759,10 +815,9 @@ if opcion_modulo == "PARTE MATUTINO":
     if st.session_state.parte_matutino_generado:
         st.subheader("📋 Parte Matutino Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.parte_matutino_generado, language=None)
-        
-# =========================================================
-# MÓDULO 2: PARTE VESPERTINO
-# =========================================================
+
+# MÓDULO 2: PARTE VESPERTINO###################################
+
 elif opcion_modulo == "PARTE VESPERTINO":
     st.header("🌆 Parte Vespertino")
 
@@ -770,6 +825,37 @@ elif opcion_modulo == "PARTE VESPERTINO":
     col_v1, col_v2 = st.columns(2)
     with col_v1:
         estacion_vesp = st.text_input("Estación", cargar_memoria("vesp_estacion", "EBF LAS JOSEFINAS"))
+        
+        seccion_guardia_vesp = st.selectbox(
+            "Sección de Guardia",
+            ["A", "B", "C"],
+            index=["A", "B", "C"].index(cargar_memoria("vesp_seccion_guardia", "C"))
+        )
+        
+        jefes_por_seccion_vesp = {
+            "A": "C/1 (B) Mendoza Oswaldo",
+            "B": "C/2 (B) Reyes Edwin",
+            "C": "C/1 (B) Montenegro Martin"
+        }
+        
+        auxiliares_por_seccion_vesp = {
+            "A": "(Auxiliar A)",
+            "B": "(Auxiliar B)",
+            "C": "(Auxiliar C)"
+        }
+        
+        auxiliar_a_cargo_vesp = st.checkbox(
+            "¿Auxiliar a cargo?",
+            value=cargar_memoria("vesp_auxiliar_a_cargo", False)
+        )
+        
+        if auxiliar_a_cargo_vesp:
+            jefe_seccion_vesp = auxiliares_por_seccion_vesp[seccion_guardia_vesp]
+        else:
+            jefe_seccion_vesp = jefes_por_seccion_vesp[seccion_guardia_vesp]
+        
+        st.text_input("Jefe de Sección / Auxiliar", jefe_seccion_vesp, disabled=True)
+        
         fecha_vesp = st.date_input("Fecha", datetime.now(), key="f_vesp")
     with col_v2:
         serv_realizados = st.number_input("Servicios Realizados", min_value=0, value=int(cargar_memoria("vesp_serv_realizados", 0)))
@@ -883,6 +969,9 @@ elif opcion_modulo == "PARTE VESPERTINO":
         fecha_str = f"{nombre_dia} {fecha_vesp.strftime('%d/%m/%Y')}"
 
         guardar_memoria("vesp_estacion", estacion_vesp)
+        guardar_memoria("vesp_seccion_guardia", seccion_guardia_vesp)
+        guardar_memoria("vesp_auxiliar_a_cargo", auxiliar_a_cargo_vesp)
+        guardar_memoria("vesp_jefe_seccion", jefe_seccion_vesp)
         guardar_memoria("vesp_serv_realizados", serv_realizados)
         guardar_memoria("vesp_actividades", actividades_vesp)
         guardar_memoria("vesp_texto_actividad", texto_actividad)
@@ -917,7 +1006,11 @@ elif opcion_modulo == "PARTE VESPERTINO":
 
 *{estacion_vesp}*
 
+*JEFE DE SECCIÓN:* {jefe_seccion_vesp}
+
 *FECHA:* {fecha_str}
+
+*SECCIÓN DE GUARDIA:* "{seccion_guardia_vesp}"
 
 *SERVICIOS REALIZADOS:* {serv_realizados:02d}
 
@@ -935,25 +1028,103 @@ elif opcion_modulo == "PARTE VESPERTINO":
         st.subheader("📋 Parte Vespertino Formateado (Listo para copiar a WhatsApp)")
         st.code(st.session_state.parte_vespertino_generado, language=None)
         
-        
-# =========================================================
-# MÓDULO 3: REPORTES DE SERVICIOS 
-# =========================================================
+# MÓDULO 3: REPORTES DE SERVICIOS###############################
+
 elif opcion_modulo == "REPORTES DE SERVICIOS":
     st.header("🚨 Reportes de Servicios")
 
     if 'lista_servicios' not in st.session_state:
         st.session_state.lista_servicios = cargar_servicios_persistencia()
 
+    st.subheader("📂 Servicios en Proceso Guardados")
+    
+    servicios_proceso = cargar_servicios_proceso()
+    
+    if servicios_proceso:
+        st.info(f"Hay {len(servicios_proceso)} servicio(s) guardado(s) para edición")
+        
+        with st.expander("Ver / Editar Servicios en Proceso"):
+            for idx, serv in enumerate(servicios_proceso):
+                st.write(f"**{idx+1}. {serv.get('tipo_servicio', 'Servicio')} - {serv.get('num_servicio', 'Sin número')}**")
+                st.write(f"   Estatus: {serv.get('estatus', 'N/A')}")
+                st.write(f"   Última modificación: {serv.get('fecha_modificacion', 'N/A')}")
+                
+                col_pre1, col_pre2 = st.columns(2)
+                with col_pre1:
+                    if st.button(f"📝 Cargar", key=f"cargar_serv_proc_{idx}"):
+                        st.session_state["servicio_proceso_cargado"] = serv
+                        st.session_state["mostrar_servicio_proceso"] = True
+                        guardar_memoria("srv_resena", serv.get("resena", ""))
+                        guardar_memoria("srv_acciones", serv.get("acciones", ""))
+                        st.rerun()
+                with col_pre2:
+                    if st.button(f"🗑️ Eliminar", key=f"eliminar_serv_proc_{idx}"):
+                        eliminar_servicio_proceso(idx)
+                        st.success("¡Servicio en proceso eliminado!")
+                        st.rerun()
+                st.markdown("---")
+                
+    else:
+        st.info("No hay servicios en proceso guardados.")
+    
+    st.markdown("---")
+
     ubicaciones = cargar_ubicaciones()
+
+    # Cargar datos del servicio en proceso si existe
+    if "servicio_proceso_cargado" in st.session_state:
+        sp = st.session_state["servicio_proceso_cargado"]
+        default_tipo_servicio = sp.get("tipo_servicio", st.session_state.lista_servicios[0])
+        default_num_servicio = sp.get("num_servicio", "")
+        default_jefe_comision = sp.get("jefe_comision", "")
+        default_resena = sp.get("resena", "")
+        default_acciones = sp.get("acciones", "")
+        default_estatus = sp.get("estatus", "en proceso")
+    else:
+        default_tipo_servicio = cargar_memoria("srv_tipo_servicio", st.session_state.lista_servicios[0])
+        default_num_servicio = cargar_memoria("srv_num_servicio", "")
+        default_jefe_comision = cargar_memoria("srv_jefe_comision", "")
+        default_resena = cargar_memoria("srv_resena", "")
+        default_acciones = cargar_memoria("srv_acciones", "")
+        default_estatus = cargar_memoria("srv_estatus", "en proceso")
 
     col_s1, col_s2 = st.columns(2)
     with col_s1:
         tipo_servicio = st.selectbox(
             "Tipo de Servicio",
             st.session_state.lista_servicios,
-            index=st.session_state.lista_servicios.index(cargar_memoria("srv_tipo_servicio", st.session_state.lista_servicios[0]))
+            index=st.session_state.lista_servicios.index(default_tipo_servicio) if default_tipo_servicio in st.session_state.lista_servicios else 0
         )
+        
+        seccion_guardia_srv = st.selectbox(
+            "Sección de Guardia",
+            ["A", "B", "C"],
+            index=["A", "B", "C"].index(cargar_memoria("srv_seccion_guardia", "C"))
+        )
+        
+        jefes_por_seccion_srv = {
+            "A": "C/1 (B) Mendoza Oswaldo",
+            "B": "C/2 (B) Reyes Edwin",
+            "C": "C/1 (B) Montenegro Martin"
+        }
+        
+        auxiliares_por_seccion_srv = {
+            "A": "(Auxiliar A)",
+            "B": "(Auxiliar B)",
+            "C": "(Auxiliar C)"
+        }
+        
+        auxiliar_a_cargo_srv = st.checkbox(
+            "¿Auxiliar a cargo?",
+            value=cargar_memoria("srv_auxiliar_a_cargo", False)
+        )
+        
+        if auxiliar_a_cargo_srv:
+            jefe_seccion_srv = auxiliares_por_seccion_srv[seccion_guardia_srv]
+        else:
+            jefe_seccion_srv = jefes_por_seccion_srv[seccion_guardia_srv]
+        
+        st.text_input("Jefe de Sección / Auxiliar", jefe_seccion_srv, disabled=True)
         
         with st.expander("➕ / 🗑️ Agregar o Borrar Tipo de Servicio"):
             nuevo_servicio = st.text_input("Escriba un nuevo tipo de servicio:")
@@ -977,7 +1148,7 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
 
         fecha_srv = st.date_input("Fecha del Servicio", datetime.now(), key="f_srv")
         hora_inicio = st.time_input("Hora de Inicio", datetime.now().time(), key="h_ini")
-        num_servicio = st.text_input("Número de Servicio", cargar_memoria("srv_num_servicio", ""), placeholder="Ej: 04-0267-2026")
+        num_servicio = st.text_input("Número de Servicio", default_num_servicio, placeholder="Ej: 04-0267-2026")
         
         st.markdown("📍 **Ubicación Geográfica**")
         
@@ -1095,13 +1266,13 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         
         ubicacion_srv = f"sub-sector {srv_sub_sector}, sector {srv_sector}, parroquia {srv_parroquia}, municipio {srv_municipio}, estado {srv_estado}"
 
-        jefe_comision = st.text_input("Jefe de Comisión", cargar_memoria("srv_jefe_comision", ""), placeholder="Indique el rango y nombre")
+        jefe_comision = st.text_input("Jefe de Comisión", default_jefe_comision, placeholder="Indique el rango y nombre")
 
     with col_s2:
         estatus_srv = st.selectbox(
             "Estatus",
             ["en proceso", "Finalizado"],
-            index=["en proceso", "Finalizado"].index(cargar_memoria("srv_estatus", "en proceso"))
+            index=["en proceso", "Finalizado"].index(default_estatus) if default_estatus in ["en proceso", "Finalizado"] else 0
         )
         hora_fin = st.time_input("Hora de Finalizado", datetime.now().time(), key="h_fin")
         efectivos_srv = st.number_input("Número de Efectivos", min_value=1, value=int(cargar_memoria("srv_efectivos", 3)), step=1)
@@ -1193,7 +1364,7 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
     st.subheader("📝 Reseña y Acciones Operativas")
     
     if "srv_resena" not in st.session_state:
-        st.session_state["srv_resena"] = cargar_memoria("srv_resena", "")
+        st.session_state["srv_resena"] = default_resena
 
     resena_borrador = st.text_area(
         "Reseña:",
@@ -1235,7 +1406,7 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 st.rerun()
     
     if "srv_acciones" not in st.session_state:
-        st.session_state["srv_acciones"] = cargar_memoria("srv_acciones", "")
+        st.session_state["srv_acciones"] = default_acciones
 
     acciones_borrador = st.text_area(
         "Acciones Realizadas:",
@@ -1295,6 +1466,9 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                 dia_str = dias_semana[fecha_srv.weekday()]
                 
                 guardar_memoria("srv_tipo_servicio", tipo_servicio)
+                guardar_memoria("srv_seccion_guardia", seccion_guardia_srv)
+                guardar_memoria("srv_auxiliar_a_cargo", auxiliar_a_cargo_srv)
+                guardar_memoria("srv_jefe_seccion", jefe_seccion_srv)
                 guardar_memoria("srv_num_servicio", num_servicio)
                 guardar_memoria("srv_estado", srv_estado)
                 guardar_memoria("srv_municipio", srv_municipio)
@@ -1348,6 +1522,10 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
 *TIPO DE SERVICIO:* 
 {tipo_servicio}
 
+*JEFE DE SECCIÓN:* {jefe_seccion_srv}
+
+*SECCIÓN DE GUARDIA:* "{seccion_guardia_srv}"
+
 *HORA DE INICIO:* {hora_inicio.strftime('%H:%M')} Hrs
 
 *HORA DE FINALIZADO:* {hora_fin.strftime('%H:%M')} Hrs
@@ -1388,8 +1566,29 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
                     "coordenadas": f"{latitud_srv}, {longitud_srv}",
                     "estatus": estatus_srv
                 }
-                registrar_servicio_dia(datos_servicio)
-                st.success("✅ Servicio registrado para los partes")
+                
+                if "servicio_proceso_cargado" not in st.session_state:
+                    registrar_servicio_dia(datos_servicio)
+                    st.success("✅ Servicio registrado para los partes")
+                else:
+                    st.success("✅ Servicio editado (no se duplica en partes)")
+                
+                if estatus_srv == "en proceso":
+                    datos_proceso = {
+                        "tipo_servicio": tipo_servicio,
+                        "num_servicio": num_servicio,
+                        "ubicacion": ubicacion_srv,
+                        "resena": resena_borrador,
+                        "acciones": acciones_borrador,
+                        "jefe_comision": jefe_comision,
+                        "coordenadas": f"{latitud_srv}, {longitud_srv}",
+                        "estatus": estatus_srv
+                    }
+                    guardar_servicio_proceso(datos_proceso)
+                    st.success("✅ Servicio guardado como en proceso")
+                else:
+                    eliminar_servicio_proceso(num_servicio)
+                    st.success("✅ Servicio finalizado y cerrado")
 
     if st.session_state.reporte_generado:
         st.subheader("📋 Reporte Formateado (Listo para copiar a WhatsApp)")
@@ -1442,15 +1641,12 @@ elif opcion_modulo == "REPORTES DE SERVICIOS":
         st.subheader("📋 Reporte Ejecutivo Formateado")
         st.code(st.session_state.reporte_ejecutivo_srv, language=None)
         
-# =========================================================
 # MÓDULO 4: REPORTES DE INCENDIOS
-# =========================================================
+
 elif opcion_modulo == "REPORTES DE INCENDIOS":
     st.header("🔥 Reportes de Incendios")
 
-    # =========================================================
     # SECCIÓN: INCENDIOS PRELIMINARES GUARDADOS
-    # =========================================================
     st.subheader("📂 Incendios en Proceso Guardados")
     
     preliminares = cargar_incendios_preliminares()
@@ -1483,9 +1679,7 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
     
     st.markdown("---")
 
-    # =========================================================
     # FORMULARIO DE INCENDIO
-    # =========================================================
     
     if "preliminar_cargado" in st.session_state:
         pre = st.session_state["preliminar_cargado"]
@@ -1529,6 +1723,36 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
 
     col_i1, col_i2 = st.columns(2)
     with col_i1:
+        seccion_guardia_inc = st.selectbox(
+            "Sección de Guardia",
+            ["A", "B", "C"],
+            index=["A", "B", "C"].index(cargar_memoria("inc_seccion_guardia", "C"))
+        )
+        
+        jefes_por_seccion_inc = {
+            "A": "C/1 (B) Mendoza Oswaldo",
+            "B": "C/2 (B) Reyes Edwin",
+            "C": "C/1 (B) Montenegro Martin"
+        }
+        
+        auxiliares_por_seccion_inc = {
+            "A": "(Auxiliar A)",
+            "B": "(Auxiliar B)",
+            "C": "(Auxiliar C)"
+        }
+        
+        auxiliar_a_cargo_inc = st.checkbox(
+            "¿Auxiliar a cargo?",
+            value=cargar_memoria("inc_auxiliar_a_cargo", False)
+        )
+        
+        if auxiliar_a_cargo_inc:
+            jefe_seccion_inc = auxiliares_por_seccion_inc[seccion_guardia_inc]
+        else:
+            jefe_seccion_inc = jefes_por_seccion_inc[seccion_guardia_inc]
+        
+        st.text_input("Jefe de Sección / Auxiliar", jefe_seccion_inc, disabled=True)
+        
         tipo_reporte_opcion = st.selectbox(
             "Tipo de Reporte", 
             ["Final", "Preliminar", "Progresivo"],
@@ -1904,6 +2128,9 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                 
                 guardar_memoria("inc_tipo_reporte", tipo_reporte)
                 guardar_memoria("inc_tipo_incendio", tipo_incendio)
+                guardar_memoria("inc_seccion_guardia", seccion_guardia_inc)
+                guardar_memoria("inc_auxiliar_a_cargo", auxiliar_a_cargo_inc)
+                guardar_memoria("inc_jefe_seccion", jefe_seccion_inc)
                 guardar_memoria("inc_num_servicio", num_servicio_inc)
                 guardar_memoria("inc_comandante", comandante_escena)
                 guardar_memoria("inc_estacion", estacion_ebf)
@@ -1958,9 +2185,13 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
                     "coordenadas": f"{lat_inc}, {lon_inc}",
                     "estatus": estatus_inc
                 }
+                
                 if "preliminar_cargado" not in st.session_state:
                     registrar_servicio_dia(datos_incendio)
-
+                    st.success("✅ Incendio registrado para los partes")
+                else:
+                    st.success("✅ Incendio editado (no se duplica en partes)")
+                
                 if estatus_inc not in ["Finalizado", "Finalizado-combatido"]:
                     datos_preliminar = {
                         "tipo_reporte": tipo_reporte,
@@ -1996,6 +2227,10 @@ elif opcion_modulo == "REPORTES DE INCENDIOS":
 *CUERPO DE BOMBEROS FORESTALES  INPARQUES*
 
 *REPORTE {tipo_reporte}*
+
+*JEFE DE SECCIÓN:* {jefe_seccion_inc}
+
+*SECCIÓN DE GUARDIA:* "{seccion_guardia_inc}"
 
 *TIPO DE EVENTO:* {tipo_incendio}
 
@@ -2091,7 +2326,9 @@ BFI: {efectivos_inc:02d}
 
 *HORA DE INICIO:* {hora_inc.strftime('%H:%M')} hrs
 
-*DIRECCIÓN:* {sector} sub-sector {sub_sector}, Parroquia {parroquia}, Municipio {municipio}, Estado {estado_inc}
+*HORA DE FIN:* {hora_inc.strftime('%H:%M')} hrs
+
+*DIRECCIÓN:* sector {sector}, sub-sector {sub_sector}, parroquia {parroquia}, municipio {municipio}, estado {estado_inc}
 
 *EVENTO:* {tipo_incendio}
 
@@ -2109,10 +2346,10 @@ BFI: {efectivos_inc:02d}
 
     if "reporte_ejecutivo_inc" in st.session_state:
         st.subheader("📋 Reporte Ejecutivo Formateado")
-        st.code(st.session_state.reporte_ejecutivo_inc, language=None)
-        # =========================================================
-# MÓDULO 5: REPORTES MIXTOS
-# =========================================================
+        st.code(st.session_state.reporte_ejecutivo_inc, language=None) 
+
+# MÓDULO 5: REPORTES MIXTOS#####################
+
 elif opcion_modulo == "REPORTES MIXTOS":
     st.header("📄 Reportes Mixtos")
 
